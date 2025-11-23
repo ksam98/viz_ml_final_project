@@ -18,18 +18,6 @@ def get_transform(train):
 def collate_fn(batch):
     return tuple(zip(*batch))
 
-def get_model_instance_segmentation(num_classes):
-    # Load an instance segmentation model pre-trained on COCO
-    model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
-
-    # Get number of input features for the classifier
-    in_features = model.roi_heads.box_predictor.cls_score.in_features
-    
-    # Replace the pre-trained head with a new one
-    model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
-
-    return model
-
 class VOCDataset(torch.utils.data.Dataset):
     def __init__(self, root, year, image_set, transforms=None):
         self.ds = VOCDetection(root=root, year=year, image_set=image_set, download=True)
@@ -89,37 +77,48 @@ class VOCDataset(torch.utils.data.Dataset):
         return len(self.ds)
 
 def train(args):
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    if torch.backends.mps.is_available():
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+    elif torch.backends.mps.is_available():
         device = torch.device('mps')
-    
+    else:
+        device = torch.device('cpu')
     print(f"Using device: {device}")
 
-    # Data loading
     print("Loading Pascal VOC dataset...")
-    # We use 2007 for speed in this demo, but can switch to 2012
-    dataset = VOCDataset(root='./data', year='2007', image_set='train', transforms=get_transform(train=True))
-    dataset_test = VOCDataset(root='./data', year='2007', image_set='val', transforms=get_transform(train=False))
+    dataset = VOCDataset(
+        root='./data', year='2012', image_set='train', transforms=get_transform(train=True)
+    )
+    dataset_test = VOCDataset(
+        root='./data', year='2012', image_set='val', transforms=get_transform(train=False)
+    )
 
     data_loader = DataLoader(
         dataset, batch_size=4, shuffle=True, num_workers=0,
         collate_fn=collate_fn
     )
-    
     data_loader_test = DataLoader(
-        dataset_test, batch_size=1, shuffle=False, num_workers=0,
+        dataset_test, batch_size=4, shuffle=False, num_workers=0,
         collate_fn=collate_fn
     )
 
     # Model setup
     num_classes = 21 # 20 classes + background
-    model = get_model_instance_segmentation(num_classes)
+
+    # TODO: add option to train model from scratch 
+    # Load an instance segmentation model pre-trained on COCO
+    model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
+
+    # Get number of input features for the classifier
+    in_features = model.roi_heads.box_predictor.cls_score.in_features
+    
+    # Replace the pre-trained head with a new one
+    model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
     model.to(device)
 
     # Optimizer
     params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)
-    
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
     # Training loop
@@ -142,9 +141,6 @@ def train(args):
             optimizer.step()
 
             epoch_loss += losses.item()
-
-            if i % 50 == 0:
-                print(f"Epoch: {epoch+1}, Iter: {i}, Loss: {losses.item():.4f}")
 
         lr_scheduler.step()
         print(f"Epoch {epoch+1} finished. Average Loss: {epoch_loss / len(data_loader):.4f}")
