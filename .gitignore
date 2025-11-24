@@ -37,6 +37,6 @@ env.bak/
 venv.bak/
 
 # Project Specific
-/data
+data/
 *_checkpoints/
 *.pth
