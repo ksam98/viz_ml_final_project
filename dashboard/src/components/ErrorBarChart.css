@@ -1,0 +1,22 @@
+.error-bar-chart {
+    display: block;
+    margin: 0 auto;
+}
+
+.error-bar-chart .bar {
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.error-bar-chart .x-axis text,
+.error-bar-chart .y-axis text {
+    fill: #cbd5e1;
+    font-size: 11px;
+}
+
+.error-bar-chart .x-axis path,
+.error-bar-chart .y-axis path,
+.error-bar-chart .x-axis line,
+.error-bar-chart .y-axis line {
+    stroke: #334155;
+}

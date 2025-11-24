@@ -142,6 +142,9 @@ def train(args):
 
             epoch_loss += losses.item()
 
+            if i % 40 == 0:
+                print(f"Epoch {epoch+1}, Iteration {i}, Loss: {losses.item():.4f}")
+
         lr_scheduler.step()
         print(f"Epoch {epoch+1} finished. Average Loss: {epoch_loss / len(data_loader):.4f}")
 

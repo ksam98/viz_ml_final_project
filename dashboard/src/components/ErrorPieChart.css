@@ -1,0 +1,13 @@
+.error-pie-chart {
+    display: block;
+    margin: 0 auto;
+}
+
+.error-pie-chart path {
+    cursor: pointer;
+    transition: d 0.2s;
+}
+
+.error-pie-chart .legend text {
+    fill: #cbd5e1;
+}
