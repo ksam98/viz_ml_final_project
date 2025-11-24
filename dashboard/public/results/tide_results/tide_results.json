@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "dataset": "Pascal VOC 2012 (val)",
+    "model": "Faster R-CNN ResNet50-FPN",
+    "num_images": 10,
+    "num_classes": 21,
+    "classes": []
+  },
+  "overall_metrics": {
+    "ap_50": 0.0,
+    "map": 0.0
+  },
+  "main_errors": {
+    "classification": 0.21,
+    "localization": 0.04,
+    "both": 0.0,
+    "duplicate": 0.0,
+    "background": 0.0,
+    "miss": 0.03
+  },
+  "special_errors": {
+    "false_positive": 0.05,
+    "false_negative": 0.03
+  }
+}

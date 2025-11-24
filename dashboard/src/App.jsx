@@ -11,7 +11,7 @@ function App() {
 
   useEffect(() => {
     // Load TIDE data from results folder
-    fetch('../results/tide_results/tide_data.json')
+    fetch('/results/tide_results/tide_results.json')
       .then(response => {
         if (!response.ok) {
           throw new Error('Failed to load TIDE data');
@@ -47,7 +47,7 @@ function App() {
           <br />
           1. <code>python scripts/evaluate_fasterrcnn_voc.py</code>
           <br />
-          2. <code>python scripts/tide_analysis_fasterrcnn.py</code>
+          2. <code>python scripts/tide_analysis_fasterrcnn.py --public_results_dir ./dashboard/public/results/tide_results</code>
         </p>
       </div>
     );

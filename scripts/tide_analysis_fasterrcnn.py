@@ -1,6 +1,7 @@
 import json
 import argparse
 import os
+import shutil
 from collections import defaultdict
 from torchvision.datasets import VOCDetection
 import numpy as np
@@ -123,22 +124,26 @@ def export_tide_json(tide, output_file, classes, num_images, dataset='Pascal VOC
     """
     # Overall metrics (AP at IoU=0.5 and MAP)
     overall_metrics = {}
-    if hasattr(tide, 'ap'):
-        # tide.ap may be a single value or a dict; handle both
-        try:
-            overall_metrics['ap_50'] = float(tide.ap)
-            overall_metrics['map'] = float(tide.ap)
-        except Exception:
-            overall_metrics['ap_50'] = 0.0
-            overall_metrics['map'] = 0.0
-    else:
-        all_errors = tide.get_all_errors() if hasattr(tide, 'get_all_errors') else {}
-        overall_metrics['ap_50'] = float(all_errors.get('AP_50', 0.0))
-        overall_metrics['map'] = float(all_errors.get('AP', 0.0))
+    all_errors = tide.get_all_errors() if hasattr(tide, 'get_all_errors') else {}
+    overall_metrics['ap_50'] = float(all_errors.get('AP_50', 0.0))
+    overall_metrics['map'] = float(all_errors.get('AP', 0.0))
 
-    # Main error breakdown (dAP for each error type)
-    main_errors = tide.get_main_errors() if hasattr(tide, 'get_main_errors') else {}
-    main_errors = {k: float(v) for k, v in main_errors.items()}
+    # Main error breakdown (dAP for each error type) mapped to frontend-friendly keys
+    main_errors_raw = tide.get_main_errors() if hasattr(tide, 'get_main_errors') else {}
+    key_map = {
+        'Cls': 'classification',
+        'Loc': 'localization',
+        'Both': 'both',
+        'Dupe': 'duplicate',
+        'Bkg': 'background',
+        'Miss': 'miss'
+    }
+    main_errors = {
+        key_map.get(k, k.lower()): float(v) for k, v in main_errors_raw.items()
+    }
+    # Ensure all expected keys exist
+    for k in key_map.values():
+        main_errors.setdefault(k, 0.0)
 
     # Special error breakdown (false positive / false negative dAP)
     special_errors_raw = tide.get_special_errors() if hasattr(tide, 'get_special_errors') else {}
@@ -166,8 +171,9 @@ def export_tide_json(tide, output_file, classes, num_images, dataset='Pascal VOC
     print(f"Dashboard data exported successfully to {output_file}")
 
 
-def run_tide_analysis(predictions_file, output_dir='./results/tide_results', data_root='./data', 
-                      year='2012', image_set='val'):
+def run_tide_analysis(predictions_file, output_dir='./results/tide_results', data_root='./data',
+                      year='2012', image_set='val', dataset_name='Pascal VOC 2012',
+                      model_name='Faster R-CNN ResNet50-FPN', public_results_dir=None):
     """
     Run TIDE analysis on Faster R-CNN predictions.
     """
@@ -175,6 +181,7 @@ def run_tide_analysis(predictions_file, output_dir='./results/tide_results', dat
     
     # Load ground truth
     gt_data, classes = load_voc_ground_truth(data_root, year, image_set)
+    num_images = len(gt_data)
     
     # Convert to TIDE format
     tide_preds, tide_gt = convert_to_tide_format(predictions_file, gt_data, classes)
@@ -244,9 +251,22 @@ def run_tide_analysis(predictions_file, output_dir='./results/tide_results', dat
         sys.stdout = original_stdout
     
     # Export structured JSON for dashboard
-    json_file = os.path.join(output_dir, 'tide_data.json')
+    json_file = os.path.join(output_dir, 'tide_results.json')
     print(f"Exporting structured data to {json_file}...")
-    export_tide_json(tide, json_file, classes)
+    export_tide_json(
+        tide,
+        json_file,
+        classes,
+        num_images=num_images,
+        dataset=dataset_name,
+        model=model_name
+    )
+    # Optionally mirror JSON into a public directory for the React app
+    if public_results_dir:
+        os.makedirs(public_results_dir, exist_ok=True)
+        public_json = os.path.join(public_results_dir, 'tide_results.json')
+        shutil.copy(json_file, public_json)
+        print(f"Copied dashboard JSON to {public_json}")
     
     # Generate plots
     print(f"Generating plots to {output_dir}...")
@@ -270,6 +290,12 @@ if __name__ == "__main__":
                         help='VOC dataset year')
     parser.add_argument('--image_set', type=str, default='val',
                         help='Image set to use (train/val)')
+    parser.add_argument('--dataset_name', type=str, default='Pascal VOC 2012 (val)',
+                        help='Dataset name to store in JSON metadata')
+    parser.add_argument('--model_name', type=str, default='Faster R-CNN ResNet50-FPN',
+                        help='Model name to store in JSON metadata')
+    parser.add_argument('--public_results_dir', type=str, default=None,
+                        help='Optional directory (e.g., dashboard/public/results) to copy tide_results.json for the frontend')
     
     args = parser.parse_args()
     
@@ -278,5 +304,8 @@ if __name__ == "__main__":
         output_dir=args.output_dir,
         data_root=args.data_root,
         year=args.year,
-        image_set=args.image_set
+        image_set=args.image_set,
+        dataset_name=args.dataset_name,
+        model_name=args.model_name,
+        public_results_dir=args.public_results_dir
     )
