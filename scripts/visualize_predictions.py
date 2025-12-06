@@ -11,14 +11,44 @@ def visualize_predictions(image_id, predictions_file, image_dir='./dummy_pred', 
     # 1. Load Predictions
     print(f"Loading predictions from {predictions_file}...")
     with open(predictions_file, 'r') as f:
-        all_predictions = json.load(f)
+        data = json.load(f)
     
-    # Filter predictions for the specific image_id
-    image_preds = [
-        p for p in all_predictions 
-        if str(p['image_id']) == str(image_id)
-    ]
+    image_preds = []
     
+    # Check if it's the TIDE results format (dict with 'mispredictions')
+    if isinstance(data, dict) and 'mispredictions' in data:
+        print("Detected TIDE results format.")
+        # Find the specific image entry
+        target_entry = next((item for item in data['mispredictions'] if str(item['image_id']) == str(image_id)), None)
+        
+        if target_entry:
+            # Reconstruct individual predictions
+            # TIDE 'boxes' are likely [x1, y1, x2, y2] based on analysis
+            boxes = target_entry['boxes']
+            scores = target_entry['confidences']
+            classes_ids = target_entry['predicted_classes']
+            
+            for box, score, cat_id in zip(boxes, scores, classes_ids):
+                # Convert [x1, y1, x2, y2] to [x, y, w, h]
+                x1, y1, x2, y2 = box
+                w = x2 - x1
+                h = y2 - y1
+                
+                image_preds.append({
+                    'image_id': image_id,
+                    'bbox': [x1, y1, w, h],
+                    'score': score,
+                    'category_id': cat_id
+                })
+    
+    # Check if it's the standard list format
+    elif isinstance(data, list):
+        print("Detected standard list format.")
+        image_preds = [
+            p for p in data 
+            if str(p['image_id']) == str(image_id)
+        ]
+        
     if not image_preds:
         print(f"No predictions found for image ID {image_id}")
         return

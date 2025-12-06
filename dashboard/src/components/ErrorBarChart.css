@@ -3,7 +3,7 @@
     margin: 0 auto;
 }
 
-.error-bar-chart .bar {
+.error-bar-chart .layer {
     cursor: pointer;
     transition: opacity 0.2s;
 }
