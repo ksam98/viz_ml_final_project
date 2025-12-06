@@ -5,34 +5,74 @@ import ErrorPieChart from './components/ErrorPieChart';
 import MetricsCard from './components/MetricsCard';
 
 function App() {
+  const [selectedEpoch, setSelectedEpoch] = useState(1);
   const [tideData, setTideData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Load TIDE data from results folder
-    fetch('/results/tide_results/tide_results.json')
+    setLoading(true);
+    // Load TIDE data from results folder based on selected epoch
+    fetch(`/data/results_epoch_${selectedEpoch}.json`)
       .then(response => {
         if (!response.ok) {
-          throw new Error('Failed to load TIDE data');
+          throw new Error(`Failed to load data for Epoch ${selectedEpoch}`);
         }
         return response.json();
       })
       .then(data => {
-        setTideData(data);
+        const processed = processData(data, selectedEpoch);
+        setTideData(processed);
         setLoading(false);
       })
       .catch(err => {
+        console.error(err);
         setError(err.message);
         setLoading(false);
       });
-  }, []);
+  }, [selectedEpoch]);
+
+  const processData = (data, epoch) => {
+    // Map raw JSON to the structure expected by components
+
+    // 1. Metrics
+    const metrics = {
+      ap_50: data.metrics.mAP50,
+      mAP: data.metrics.mAP,
+      // Add others if needed
+    };
+
+    // 2. Main Errors
+    // The key in data.tide.errors.main depends on the epoch, e.g., "epoch1_predictions"
+    const predictionKey = `epoch${epoch}_predictions`;
+    const rawErrors = data.tide.errors.main[predictionKey] || {};
+
+    const main_errors = {
+      classification: rawErrors.Cls || 0,
+      localization: rawErrors.Loc || 0,
+      both: rawErrors.Both || 0,
+      duplicate: rawErrors.Dupe || 0,
+      background: rawErrors.Bkg || 0,
+      miss: rawErrors.Miss || 0,
+    };
+
+    return {
+      metadata: {
+        model: "Faster R-CNN", // Hardcoded or extracted if available
+        dataset: "COCO Val 2017 (Subset)",
+        num_images: 6, // We know it's 6 images
+        num_classes: 80 // COCO default
+      },
+      overall_metrics: metrics,
+      main_errors: main_errors
+    };
+  };
 
   if (loading) {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
-        <p>Loading TIDE Analysis...</p>
+        <p>Loading Analysis for Epoch {selectedEpoch}...</p>
       </div>
     );
   }
@@ -42,13 +82,7 @@ function App() {
       <div className="error-container">
         <h2>Error Loading Data</h2>
         <p>{error}</p>
-        <p className="error-hint">
-          Make sure you've run the evaluation and TIDE analysis scripts first:
-          <br />
-          1. <code>python scripts/evaluate_fasterrcnn_voc.py</code>
-          <br />
-          2. <code>python scripts/tide_analysis_fasterrcnn.py --public_results_dir ./dashboard/public/results/tide_results</code>
-        </p>
+        <button onClick={() => window.location.reload()}>Retry</button>
       </div>
     );
   }
@@ -56,29 +90,85 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>TIDE Error Analysis Dashboard</h1>
-        <p className="subtitle">
-          {tideData.metadata.model} on {tideData.metadata.dataset}
-        </p>
+        <div className="header-content">
+          <div>
+            <h1>TIDE Error Analysis Dashboard</h1>
+            <p className="subtitle">
+              {tideData.metadata.model} on {tideData.metadata.dataset}
+            </p>
+          </div>
+          <div className="epoch-selector">
+            <label htmlFor="epoch-select">Select Epoch: </label>
+            <select
+              id="epoch-select"
+              value={selectedEpoch}
+              onChange={(e) => setSelectedEpoch(Number(e.target.value))}
+            >
+              <option value={1}>Epoch 1</option>
+              <option value={2}>Epoch 2</option>
+            </select>
+          </div>
+        </div>
       </header>
 
-      <div className="metrics-grid">
-        <MetricsCard
-          title="AP @ IoU=0.50"
-          value={(tideData.overall_metrics.ap_50 * 100).toFixed(2)}
-          unit="%"
-          description="Average Precision at 50% IoU threshold"
-        />
-        <MetricsCard
-          title="Images Evaluated"
-          value={tideData.metadata.num_images}
-          description="Total images in validation set"
-        />
-        <MetricsCard
-          title="Classes"
-          value={tideData.metadata.num_classes}
-          description="Number of object categories"
-        />
+      <div className="top-section">
+        <div className="metrics-container">
+          <div className="metrics-grid">
+            <MetricsCard
+              title="mAP @ IoU=0.50"
+              value={(tideData.overall_metrics.ap_50 * 100).toFixed(2)}
+              unit="%"
+              description="Average Precision at 50% IoU threshold"
+            />
+            <MetricsCard
+              title="mAP (COCO)"
+              value={(tideData.overall_metrics.mAP * 100).toFixed(2)}
+              unit="%"
+              description="Mean Average Precision (IoU=.50:.05:.95)"
+            />
+            <MetricsCard
+              title="Images Evaluated"
+              value={tideData.metadata.num_images}
+              description="Total images in validation set"
+            />
+          </div>
+        </div>
+
+        <div className="error-summary-container">
+          <h3>Error Types & Impact (dAP)</h3>
+          <div className="error-summary-list">
+            <div className="error-summary-item">
+              <span className="error-label error-cls">Cls</span>
+              <span className="error-desc">Classification</span>
+              <span className="error-val">{tideData.main_errors.classification.toFixed(2)}</span>
+            </div>
+            <div className="error-summary-item">
+              <span className="error-label error-loc">Loc</span>
+              <span className="error-desc">Localization</span>
+              <span className="error-val">{tideData.main_errors.localization.toFixed(2)}</span>
+            </div>
+            <div className="error-summary-item">
+              <span className="error-label error-both">Both</span>
+              <span className="error-desc">Cls + Loc</span>
+              <span className="error-val">{tideData.main_errors.both.toFixed(2)}</span>
+            </div>
+            <div className="error-summary-item">
+              <span className="error-label error-dupe">Dupe</span>
+              <span className="error-desc">Duplicate</span>
+              <span className="error-val">{tideData.main_errors.duplicate.toFixed(2)}</span>
+            </div>
+            <div className="error-summary-item">
+              <span className="error-label error-bkg">Bkg</span>
+              <span className="error-desc">Background</span>
+              <span className="error-val">{tideData.main_errors.background.toFixed(2)}</span>
+            </div>
+            <div className="error-summary-item">
+              <span className="error-label error-miss">Miss</span>
+              <span className="error-desc">Missed</span>
+              <span className="error-val">{tideData.main_errors.miss.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="visualizations-grid">
@@ -99,54 +189,6 @@ function App() {
         </div>
       </div>
 
-      <div className="error-details">
-        <h2>Error Type Descriptions</h2>
-        <div className="error-grid">
-          <div className="error-item">
-            <h3 className="error-cls">Classification Error</h3>
-            <p>Correct localization but wrong class prediction</p>
-            <span className="error-value">
-              dAP: {(tideData.main_errors.classification * 100).toFixed(2)}%
-            </span>
-          </div>
-          <div className="error-item">
-            <h3 className="error-loc">Localization Error</h3>
-            <p>Correct class but poor bounding box overlap</p>
-            <span className="error-value">
-              dAP: {(tideData.main_errors.localization * 100).toFixed(2)}%
-            </span>
-          </div>
-          <div className="error-item">
-            <h3 className="error-both">Both Errors</h3>
-            <p>Wrong class AND poor localization</p>
-            <span className="error-value">
-              dAP: {(tideData.main_errors.both * 100).toFixed(2)}%
-            </span>
-          </div>
-          <div className="error-item">
-            <h3 className="error-dupe">Duplicate Detection</h3>
-            <p>Multiple detections on the same object</p>
-            <span className="error-value">
-              dAP: {(tideData.main_errors.duplicate * 100).toFixed(2)}%
-            </span>
-          </div>
-          <div className="error-item">
-            <h3 className="error-bkg">Background Error</h3>
-            <p>False positive on background regions</p>
-            <span className="error-value">
-              dAP: {(tideData.main_errors.background * 100).toFixed(2)}%
-            </span>
-          </div>
-          <div className="error-item">
-            <h3 className="error-miss">Missed Detection</h3>
-            <p>Ground truth object not detected</p>
-            <span className="error-value">
-              dAP: {(tideData.main_errors.miss * 100).toFixed(2)}%
-            </span>
-          </div>
-        </div>
-      </div>
-
       <footer className="app-footer">
         <p>
           TIDE: A General Toolbox for Identifying Object Detection Errors
@@ -161,3 +203,4 @@ function App() {
 }
 
 export default App;
+
