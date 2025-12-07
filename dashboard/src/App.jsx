@@ -13,7 +13,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/error/:errorType" element={<ErrorDetailPage />} />
-        <Route path="/image/:imageId" element={<ImageDetail />} />
+        <Route path="/image/:imageId/:errorType" element={<ImageDetail />} />
         <Route path="/error-evolution/:errorType" element={<ErrorEvolutionPage />} />
         <Route path="/image-evolution/:imageId" element={<ImageEvolutionPage />} />
         </Routes>

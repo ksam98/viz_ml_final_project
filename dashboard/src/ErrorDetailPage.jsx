@@ -90,7 +90,7 @@ const ErrorDetailPage = () => {
                 </div>
                 <div className="viz-card">
                     <h2>Image Grid</h2>
-                    <ImageGrid data={chartData} epoch={epoch} />
+                    <ImageGrid data={chartData} epoch={epoch} errorType={errorType} />
                 </div>
             </div>
         </div>
@@ -117,13 +117,13 @@ const removeBorderFromSelectedImage = (imageId) => {
         imgElement.style.border = 'none';
     }
 }   
-const ImageGrid = ({ data, epoch }) => {
+const ImageGrid = ({ data, epoch, errorType }) => {
     console.log(data);
     const navigate = useNavigate();
 
     const handleImageClick = (imageId) => {
         // Navigate to ImageDetail page
-        navigate(`/image/${imageId}?epoch=${epoch}`);
+        navigate(`/image/${imageId}/${errorType}?epoch=${epoch}`);
     };
     return (
         <div className="image-grid">
