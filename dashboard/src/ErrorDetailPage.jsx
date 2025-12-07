@@ -55,14 +55,15 @@ const ErrorDetailPage = () => {
         data.mispredictions.forEach(item => {
             const count = item.errors.filter(e => e === errorCode).length;
             if (count > 0) {
-                imageCounts[item.image_id] = count;
+                imageCounts[item.image_id] = {count: count, boxes: item.boxes};
             }
         });
 
         // Convert to array for D3
         const processed = Object.entries(imageCounts).map(([id, value]) => ({
             id,
-            value
+            value: value.count,
+            boxes: value.boxes
         })).sort((a, b) => b.value - a.value); // Sort by count descending
 
         setChartData(processed);
@@ -79,16 +80,55 @@ const ErrorDetailPage = () => {
                 <p className="subtitle">Epoch {epoch} • Per-Image Contribution</p>
             </header>
 
-            <div className="viz-card" style={{ maxWidth: '800px', margin: '0 auto' }}>
-                <h2>Image Contribution</h2>
-                <p className="viz-description">
-                    Number of {errorType} errors contributed by each image.
-                </p>
-                <ImageContributionPieChart data={chartData} />
+            <div className="viz-container">
+                <div className="viz-card">
+                    <h2>Image Contribution</h2>
+                    <p className="viz-description">
+                        Number of {errorType} errors contributed by each image.
+                    </p>
+                    <ImageContributionPieChart data={chartData} />
+                </div>
+                <div className="viz-card">
+                    <h2>Image Grid</h2>
+                    <ImageGrid data={chartData} />
+                </div>
             </div>
         </div>
     );
 };
+
+const resolveImagePath = (imageId) => {
+    const id_len = imageId.toString().length;
+    const padding = '0'.repeat(12 - id_len);
+    const imageFileName = padding + imageId.toString();
+    return '/images/' + imageFileName + '.jpg';
+}
+
+const addBorderToSelectedImage = (imageId) => {
+    const imgElement = document.getElementById(imageId);
+    if (imgElement) {
+        imgElement.style.border = '4px solid #2563eb'; // Tailwind blue-500
+    }
+}
+
+const removeBorderFromSelectedImage = (imageId) => {
+    const imgElement = document.getElementById(imageId);
+    if (imgElement) {
+        imgElement.style.border = 'none';
+    }
+}   
+const ImageGrid = ({ data }) => {
+    console.log(data);
+    return (
+        <div className="image-grid">
+            {data.map(item => (
+                <div key={item.id} className="image-card">
+                    <img src={resolveImagePath(item.id)} id={`${item.id}`} alt={`Image ${item.id}`} />
+                </div>
+            ))}
+        </div>
+    );
+}
 
 const ImageContributionPieChart = ({ data }) => {
 
@@ -135,10 +175,12 @@ const ImageContributionPieChart = ({ data }) => {
             .attr('stroke', 'white')
             .style('stroke-width', '2px')
             .style('opacity', 0.8)
-            .on('mouseover', function () {
+            .on('mouseover', function (event, d) {
+                addBorderToSelectedImage(d.data.id)
                 d3.select(this).style('opacity', 1);
             })
-            .on('mouseout', function () {
+            .on('mouseout', function (event, d) {
+                removeBorderFromSelectedImage(d.data.id)
                 d3.select(this).style('opacity', 0.8);
             });
 

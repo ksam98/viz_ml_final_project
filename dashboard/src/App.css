@@ -176,6 +176,61 @@ body {
   margin-bottom: 3rem;
 }
 
+/* Container for visualization cards on detail pages */
+.viz-container {
+  display: grid;
+  gap: 2rem;
+  margin-bottom: 3rem;
+  align-items: start;
+  grid-template-columns: 1fr 1fr; /* Creates two columns of equal width */
+  gap: 20px; /* Optional: Adds a 20px gap between columns */
+}
+
+/* Image grid for gallery / thumbnails */
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 1.5rem;
+}
+
+.image-card {
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.image-card:hover {
+  border: 4px solid var(--primary-color);
+  /* transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.4); */
+}
+
+.image-card img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+  border-radius: 6px;
+  aspect-ratio: 4 / 3;
+}
+
+@media (max-width: 480px) {
+  .image-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .image-card img {
+    aspect-ratio: 1 / 1;
+  }
+}
+
 .viz-card {
   background: var(--surface);
   border-radius: 12px;
