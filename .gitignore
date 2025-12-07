@@ -41,3 +41,5 @@ dashboard/public/images/
 dashboard/public/data/
 *_checkpoints/
 *.pth
+dashboard/public/data
+dashboard/public/images

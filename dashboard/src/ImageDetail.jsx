@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import './App.css';
 
 function ImageDetail() {
-    const { imageId } = useParams();
+    const { imageId, errorType } = useParams();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const epoch = searchParams.get('epoch') || '1';
@@ -11,8 +11,16 @@ function ImageDetail() {
     const [images, setImages] = useState({ backbone: [], fpn: [], pool: [] });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-
+    const [imageErrorData, setImageErrorData] = useState([]);
+    const canvasRef = useRef(null);
+    const imgRef = useRef(null);
     const fpnLayers = 3;
+    const resolveImagePath = (imageId) => {
+        const id_len = imageId.toString().length;
+        const padding = '0'.repeat(12 - id_len);
+        const imageFileName = padding + imageId.toString();
+        return '/images/' + imageFileName + '.jpg';
+    }
 
     useEffect(() => {
         setLoading(true);
@@ -35,13 +43,145 @@ function ImageDetail() {
             console.log('Loaded image paths:', loadedImages);
             setImages(loadedImages);
             setLoading(false);
+            
+            const promises = [
+                fetch(`/data/results_epoch_${epoch}.json`)
+                    .then(res => {
+                        if (!res.ok) throw new Error(`Failed to load data for Epoch ${epoch}`);
+                        return res.json();
+                    })
+                    .then(data => processData(data, imageId, errorType)),
+                
+                fetch(`/data/val.json`)
+                    .then(res => {
+                        if (!res.ok) throw new Error('Failed to load val.json');
+                        return res.json();
+                    })
+                    .then(data => processValData(data, imageId))
+            ]
+            Promise.all(promises)
+                .then(results => {
+                    setImageErrorData([...results[0], ...results[1]]);
+                    console.log('Processed val data for ImageDetail:', [...results[0], ...results[1]]);
+                })
+                .catch(err => {
+                    console.error(err);
+                    setError('Failed to load image data.');
+                });
         } catch (err) {
             console.error(err);
             setError('Failed to load images.');
             setLoading(false);
         }
     }, [epoch, imageId]);
+    const processValData = (data, imageId) => {
+        let imageErrorMetadata = []
+        for(let i =0; i< data.annotations.length; i++) {
+            if(data.annotations[i].image_id.toString() === imageId.toString()){
+                imageErrorMetadata.push(
+                    { 
+                        confidence: 1,
+                        predicted_classes: data.annotations[i].category_id,
+                        box: data.annotations[i].bbox,
+                        color: '#08f808ff'
+                    }
+                );
+            }
+        }
 
+        return imageErrorMetadata;
+    }
+    const processData = (data, imageId, errorType) => {
+        const typeMap = {
+            'classification': 'Cls',
+            'localization': 'Loc',
+            'both': 'Both',
+            'duplicate': 'Dupe',
+            'background': 'Bkg',
+            'miss': 'Miss'
+        };
+
+        const errorCode = typeMap[errorType.toLowerCase()];
+        if (!errorCode) {
+            throw new Error(`Unknown error type: ${errorType}`);
+        }
+        if(errorCode === "Bkg") {
+            return [];
+        }
+
+        const imageData = data.mispredictions.find(item => item.image_id.toString() === imageId.toString());
+        if (!imageData) {
+            throw new Error(`Image ID ${imageId} not found in data.`);
+        }
+        let index = [];
+        let imageErrorMetadata = [];
+        for (let i = 0; i< imageData.errors.length; i++) {
+            if (imageData.errors[i] === errorCode) {
+                index.push(i);
+                imageErrorMetadata.push(
+                    { 
+                        confidence: imageData.confidences[i],
+                        predicted_classes: imageData.predicted_classes[i],
+                        box: imageData.boxes[i],
+                        color: '#ee0a0aff'
+                    }
+                );
+            }
+            if(i >= 5) break;  // Safety break to avoid too many boxes
+        }
+
+        return imageErrorMetadata
+    };
+
+    const drawBoundingBoxes = () => {
+        if (!imgRef.current || !canvasRef.current || imageErrorData.length === 0) return;
+
+        const canvas = canvasRef.current;
+        const img = imgRef.current;
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas dimensions to match image
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        // Draw each bounding box
+        imageErrorData.forEach(errorData => {
+            const box = errorData.box;
+            const confidence = errorData.confidence;
+            const predictedClass = errorData.predicted_classes;
+            // const className = classNames[predictedClass] || `Class ${predictedClass}`;
+            const className = `Class ${predictedClass}`;
+
+            // Extract box coordinates [x1, y1, x2, y2]
+            const [x1, y1, x2, y2] = box;
+            const width = x2 - x1;
+            const height = y2 - y1;
+
+            // Draw rectangle
+            ctx.strokeStyle = errorData.color;
+            ctx.strokeStyle = errorData.color;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x1, y1, width, height);
+
+            // Draw label background
+            const label = `${className}: ${(confidence * 100).toFixed(1)}%`;
+            ctx.font = 'bold 14px Arial';
+            ctx.fillStyle = errorData.color;
+            const textWidth = ctx.measureText(label).width;
+            ctx.fillRect(x1, y1 - 25, textWidth + 8, 24);
+
+            // Draw label text
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(label, x1 + 4, y1 - 8);
+        });
+    };
+
+    useEffect(() => {
+        if (imgRef.current && imgRef.current.complete) {
+            drawBoundingBoxes();
+        }
+    }, [imageErrorData]);
+    
     if (loading) return <div className="loading-container"><div className="loading-spinner"></div></div>;
     if (error) return (
         <div className="error-container">
@@ -98,6 +238,33 @@ function ImageDetail() {
                             />
                         </div>
                     ))}
+                </div>
+            </div>
+            <div className="image-detail-container">
+                <h2>Error Type: {errorType.charAt(0).toUpperCase() + errorType.slice(1)}</h2>
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                    {
+                        imageErrorData.length > 0 ?
+                            <><img 
+                                ref={imgRef}
+                                src={resolveImagePath(imageId)} 
+                                alt={`Image ${imageId}`}
+                                onLoad={drawBoundingBoxes}
+                                style={{ display: 'block', maxWidth: '100%' }}
+                            />
+                            <canvas
+                                ref={canvasRef}
+                                style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    maxWidth: '100%',
+                                    height: 'auto',
+                                    display: imageErrorData.length > 0 ? 'block' : 'none'
+                                }}
+                            /></>:
+                            <></>
+                    }
                 </div>
             </div>
         </div>
