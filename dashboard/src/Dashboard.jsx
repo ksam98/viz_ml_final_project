@@ -78,9 +78,13 @@ function Dashboard() {
     };
 
     const handleErrorClick = (errorType) => {
-        // Navigate to error detail page
-        // errorType comes from the chart key, e.g., "classification"
+        // Navigate to error detail page for single epoch
         navigate(`/error/${errorType}?epoch=${selectedEpoch}`);
+    };
+
+    const handleErrorEvolution = (errorType) => {
+        // Navigate to evolution page showing all epochs
+        navigate(`/error-evolution/${errorType}`);
     };
 
     // Derived state for the currently selected epoch
@@ -220,12 +224,13 @@ function Dashboard() {
                         </label>
                     </div>
                     <p className="viz-description">
-                        Evolution of error impact (dAP) across epochs. Click chart to select epoch.
+                        Evolution of error impact (dAP) across epochs. Click an area to view all images with that error across epochs.
                     </p>
                     <ErrorBarChart
                         data={allEpochsData}
                         selectedEpoch={selectedEpoch}
                         onEpochSelect={setSelectedEpoch}
+                        onErrorSelect={handleErrorEvolution}
                         excludeErrors={showBackground ? [] : ['background']}
                     />
                 </div>

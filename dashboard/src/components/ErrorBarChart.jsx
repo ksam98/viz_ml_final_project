@@ -117,12 +117,10 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect, excl
                 d3.select(this).style('opacity', 0.8);
             })
             .on('click', function (event, d) {
-                // d.key contains the error type (e.g., "classification")
+                // Navigate to evolution page for this error type
                 if (onErrorSelect) {
                     onErrorSelect(d.key);
                 }
-
-                // Prevent bubbling to the epoch selection click
                 event.stopPropagation();
             });
 
