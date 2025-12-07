@@ -37,5 +37,7 @@ env.bak/
 venv.bak/
 
 # Project Specific
+dashboard/public/images/
+dashboard/public/data/
 *_checkpoints/
 *.pth
