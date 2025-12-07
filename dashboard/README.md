@@ -33,7 +33,7 @@ Download and extract all images into the `public/images` folder:
 ### 2. Grad-CAMs & Feature Maps
 Download and extract the Grad-CAM and FPN feature maps into the `public/data` folder:
 
-[Download Grad-CAMs & Feature Maps]((https://drive.google.com/file/d/1pE_RegCBatDIejFI4vUW32y56oky4RQ-/view?usp=drive_link))
+[Download Grad-CAMs & Feature Maps](https://drive.google.com/file/d/1pE_RegCBatDIejFI4vUW32y56oky4RQ-/view?usp=drive_link)
 
 **Steps:**
 1. Click the link above to download the ZIP file.
