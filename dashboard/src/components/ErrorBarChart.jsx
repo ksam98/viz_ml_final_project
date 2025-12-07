@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 import './ErrorBarChart.css';
 
-const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect }) => {
+const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect, excludeErrors = [] }) => {
     const svgRef = useRef();
 
     useEffect(() => {
@@ -18,7 +18,10 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect }) =>
             ...d.main_errors
         })).sort((a, b) => a.epoch - b.epoch);
 
-        const keys = ['classification', 'localization', 'both', 'duplicate', 'background', 'miss'];
+        // Filter out excluded error types
+        const allKeys = ['classification', 'localization', 'both', 'duplicate', 'background', 'miss'];
+        const keys = allKeys.filter(key => !excludeErrors.includes(key));
+
         const colors = {
             classification: '#ff7f0e',
             localization: '#1f77b4',
@@ -45,7 +48,7 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect }) =>
             .domain(d3.extent(chartData, d => d.epoch))
             .range([0, width]);
 
-        // Stack the data
+        // Stack the data with filtered keys
         const stackedData = d3.stack()
             .keys(keys)
             (chartData);
@@ -106,6 +109,7 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect }) =>
             .attr('d', area)
             .style('fill', d => colors[d.key])
             .style('opacity', 0.8)
+            .style('cursor', 'pointer')
             .on('mouseover', function (event, d) {
                 d3.select(this).style('opacity', 1);
             })
@@ -151,7 +155,7 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect }) =>
                 .style('pointer-events', 'none'); // Let clicks pass through
         }
 
-    }, [data, selectedEpoch, onEpochSelect]);
+    }, [data, selectedEpoch, onEpochSelect, onErrorSelect, excludeErrors]);
 
     return <svg ref={svgRef} className="error-bar-chart"></svg>;
 };

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import './App.css';
 import ErrorBarChart from './components/ErrorBarChart';
 import ErrorPieChart from './components/ErrorPieChart';
+import ErrorDetailBarChart from './components/ErrorDetailBarChart';
 import MetricsCard from './components/MetricsCard';
 
 function Dashboard() {
@@ -11,12 +12,14 @@ function Dashboard() {
     const [allEpochsData, setAllEpochsData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [showBackground, setShowBackground] = useState(false);
+    const [showPieBackground, setShowPieBackground] = useState(true);
 
     useEffect(() => {
         setLoading(true);
 
         // Fetch all available epochs (currently 1 and 2)
-        const epochs = [1, 2];
+        const epochs = [1,5,10];
         const promises = epochs.map(epoch =>
             fetch(`/data/results_epoch_${epoch}.json`)
                 .then(res => {
@@ -65,8 +68,8 @@ function Dashboard() {
             metadata: {
                 model: "Faster R-CNN",
                 dataset: "COCO Val 2017 (Subset)",
-                num_images: 6,
-                num_classes: 80
+                num_images:462,
+                num_classes: 2
             },
             overall_metrics: metrics,
             main_errors: main_errors,
@@ -155,32 +158,32 @@ function Dashboard() {
                 <div className="error-summary-container">
                     <h3>Error Types & Impact (dAP)</h3>
                     <div className="error-summary-list">
-                        <div className="error-summary-item">
+                        <div className="error-summary-item" onClick={() => handleErrorClick('classification')} style={{ cursor: 'pointer' }}>
                             <span className="error-label error-cls">Cls</span>
                             <span className="error-desc">Classification</span>
                             <span className="error-val">{currentEpochData.main_errors.classification.toFixed(2)}</span>
                         </div>
-                        <div className="error-summary-item">
+                        <div className="error-summary-item" onClick={() => handleErrorClick('localization')} style={{ cursor: 'pointer' }}>
                             <span className="error-label error-loc">Loc</span>
                             <span className="error-desc">Localization</span>
                             <span className="error-val">{currentEpochData.main_errors.localization.toFixed(2)}</span>
                         </div>
-                        <div className="error-summary-item">
+                        <div className="error-summary-item" onClick={() => handleErrorClick('both')} style={{ cursor: 'pointer' }}>
                             <span className="error-label error-both">Both</span>
                             <span className="error-desc">Cls + Loc</span>
                             <span className="error-val">{currentEpochData.main_errors.both.toFixed(2)}</span>
                         </div>
-                        <div className="error-summary-item">
+                        <div className="error-summary-item" onClick={() => handleErrorClick('duplicate')} style={{ cursor: 'pointer' }}>
                             <span className="error-label error-dupe">Dupe</span>
                             <span className="error-desc">Duplicate</span>
                             <span className="error-val">{currentEpochData.main_errors.duplicate.toFixed(2)}</span>
                         </div>
-                        <div className="error-summary-item">
+                        <div className="error-summary-item" onClick={() => handleErrorClick('background')} style={{ cursor: 'pointer' }}>
                             <span className="error-label error-bkg">Bkg</span>
                             <span className="error-desc">Background</span>
                             <span className="error-val">{currentEpochData.main_errors.background.toFixed(2)}</span>
                         </div>
-                        <div className="error-summary-item">
+                        <div className="error-summary-item" onClick={() => handleErrorClick('miss')} style={{ cursor: 'pointer' }}>
                             <span className="error-label error-miss">Miss</span>
                             <span className="error-desc">Missed</span>
                             <span className="error-val">{currentEpochData.main_errors.miss.toFixed(2)}</span>
@@ -191,24 +194,79 @@ function Dashboard() {
 
             <div className="visualizations-grid">
                 <div className="viz-card">
-                    <h2>Main Error Breakdown (Evolution)</h2>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <div>
+                            <h2 style={{ marginBottom: 0 }}>Main Error Breakdown (Evolution)</h2>
+                        </div>
+                        <label style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '0.5rem',
+                            cursor: 'pointer',
+                            padding: '0.5rem 1rem',
+                            background: 'var(--background)',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border)'
+                        }}>
+                            <input 
+                                type="checkbox" 
+                                checked={showBackground}
+                                onChange={(e) => setShowBackground(e.target.checked)}
+                                style={{ cursor: 'pointer' }}
+                            />
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                                Show Background
+                            </span>
+                        </label>
+                    </div>
                     <p className="viz-description">
-                        Evolution of error impact (dAP) across epochs. Click an error type to drill down.
+                        Evolution of error impact (dAP) across epochs. Click chart to select epoch.
                     </p>
                     <ErrorBarChart
                         data={allEpochsData}
                         selectedEpoch={selectedEpoch}
                         onEpochSelect={setSelectedEpoch}
-                        onErrorSelect={handleErrorClick}
+                        excludeErrors={showBackground ? [] : ['background']}
                     />
                 </div>
 
                 <div className="viz-card">
-                    <h2>Error Distribution (Epoch {selectedEpoch})</h2>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <div>
+                            <h2 style={{ marginBottom: 0 }}>Error Distribution (Epoch {selectedEpoch})</h2>
+                        </div>
+                        <label style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '0.5rem',
+                            cursor: 'pointer',
+                            padding: '0.5rem 1rem',
+                            background: 'var(--background)',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border)'
+                        }}>
+                            <input 
+                                type="checkbox" 
+                                checked={showPieBackground}
+                                onChange={(e) => setShowPieBackground(e.target.checked)}
+                                style={{ cursor: 'pointer' }}
+                            />
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                                Show Background
+                            </span>
+                        </label>
+                    </div>
                     <p className="viz-description">
-                        Relative proportion of each error type
+                        {showPieBackground ? 'Relative proportion of each error type' : 'Error breakdown without background (click bars for details)'}
                     </p>
-                    <ErrorPieChart data={currentEpochData.main_errors} />
+                    {showPieBackground ? (
+                        <ErrorPieChart data={currentEpochData.main_errors} />
+                    ) : (
+                        <ErrorDetailBarChart 
+                            data={currentEpochData.main_errors} 
+                            onErrorClick={handleErrorClick}
+                        />
+                    )}
                 </div>
             </div>
 

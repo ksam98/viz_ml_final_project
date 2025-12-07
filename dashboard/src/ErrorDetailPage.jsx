@@ -90,7 +90,7 @@ const ErrorDetailPage = () => {
                 </div>
                 <div className="viz-card">
                     <h2>Image Grid</h2>
-                    <ImageGrid data={chartData} />
+                    <ImageGrid data={chartData} epoch={epoch} />
                 </div>
             </div>
         </div>
@@ -117,13 +117,28 @@ const removeBorderFromSelectedImage = (imageId) => {
         imgElement.style.border = 'none';
     }
 }   
-const ImageGrid = ({ data }) => {
+const ImageGrid = ({ data, epoch }) => {
     console.log(data);
+    const navigate = useNavigate();
+
+    const handleImageClick = (imageId) => {
+        // Navigate to ImageDetail page
+        navigate(`/image/${imageId}?epoch=${epoch}`);
+    };
     return (
         <div className="image-grid">
             {data.map(item => (
-                <div key={item.id} className="image-card">
-                    <img src={resolveImagePath(item.id)} id={`${item.id}`} alt={`Image ${item.id}`} />
+                <div 
+                    key={item.id} 
+                    className="image-card" 
+                    onClick={() => handleImageClick(item.id)}
+                    style={{ cursor: 'pointer' }}
+                >
+                    <img 
+                        src={resolveImagePath(item.id)} 
+                        id={`${item.id}`} 
+                        alt={`Image ${item.id}`} 
+                    />
                 </div>
             ))}
         </div>
