@@ -263,9 +263,9 @@ function ImageDetail() {
         switch (view) {
             case 'Original': return resolveImagePath(imageId);
             case 'Backbone Grad-CAM': return images.backbone[0];
-            case 'FPN Layer 0': return images.fpn[0];
-            case 'FPN Layer 1': return images.fpn[1];
-            case 'FPN Layer 2': return images.fpn[2];
+            case 'FPN Resolution 0': return images.fpn[0];
+            case 'FPN Resolution 1': return images.fpn[1];
+            case 'FPN Resolution 2': return images.fpn[2];
             case 'Pool Layer': return images.pool[0];
             default: return resolveImagePath(imageId);
         }
@@ -273,7 +273,7 @@ function ImageDetail() {
 
     const toggleOptions = [
         'Original',
-        ...(images.fpn?.length ? ['FPN Layer 0', 'FPN Layer 1', 'FPN Layer 2'] : []),
+        ...(images.fpn?.length ? ['FPN Resolution 0', 'FPN Resolution 1', 'FPN Resolution 2'] : []),
         ...(images.pool?.length ? ['Pool Layer'] : []),
         ...(images.backbone?.length ? ['Backbone Grad-CAM'] : [])
     ];

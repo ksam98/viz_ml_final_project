@@ -87,7 +87,7 @@ function ImageEvolutionPage() {
                                 {/* FPN Layers */}
                                 {epochData.fpn.map((src, idx) => (
                                     <div key={`fpn-${idx}`} className="image-column">
-                                        <h3>FPN Layer {idx}</h3>
+                                        <h3>FPN Res {idx}</h3>
                                         <img 
                                             src={src} 
                                             alt={`Epoch ${epochData.epoch} FPN Layer ${idx}`}
@@ -116,7 +116,7 @@ function ImageEvolutionPage() {
 
                                 {/* Backbone Grad-CAM */}
                                 <div className="image-column">
-                                    <h3>Backbone Grad-CAM</h3>
+                                    <h3>Bacbone GradCAM</h3>
                                     <img 
                                         src={epochData.backbone} 
                                         alt={`Epoch ${epochData.epoch} Backbone Grad-CAM`}
