@@ -237,6 +237,37 @@ body {
   aspect-ratio: 4 / 3;
 }
 
+/* Caption shown at bottom of each image-card */
+.image-card {
+  position: relative; /* make caption absolute inside */
+}
+
+.image-card .caption,
+.image-card > div {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.5rem 0.6rem;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(2,6,23,0.7) 60%);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-align: left;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  pointer-events: none; /* make clicks pass-through to card */
+}
+
+.image-card .caption small,
+.image-card > div small {
+  display: block;
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
 @media (max-width: 480px) {
   .image-grid {
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -269,7 +300,13 @@ body {
 .viz-description {
   color: var(--text-secondary);
   font-size: 0.9rem;
-  margin-bottom: 1.5rem;
+  /* margin-bottom: 1.5rem; */
+}
+
+.viz-description-small {
+  color: var(--text-secondary);
+  font-size: 0.6rem;
+  font-style: italic;
 }
 
 .error-cls {
@@ -445,6 +482,15 @@ body {
   box-shadow: 0 8px 16px rgba(0,0,0,0.4);
 }
 
+.sample_name{
+  margin-top: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  background-color:#1f77b4;
+  display: inline-block;
+  border-radius: 4px;
+  padding: 5px;
+}
 /* For large screens: show all in one row */
 @media (min-width: 1400px) {
   .image-detail-grid {

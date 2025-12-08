@@ -86,6 +86,9 @@ const ErrorDetailPage = () => {
                     <p className="viz-description">
                         Number of {errorType} errors contributed by each image.
                     </p>
+                    <p className="viz-description-small">
+                        Truncated to top 20 images for clarity.
+                    </p>
                     <ImageContributionPieChart data={chartData} />
                 </div>
                 <div className="viz-card">
@@ -139,6 +142,7 @@ const ImageGrid = ({ data, epoch, errorType }) => {
                         id={`${item.id}`} 
                         alt={`Image ${item.id}`} 
                     />
+                    <div>{`Mispredictions: ${item.value}`}</div>
                 </div>
             ))}
         </div>
@@ -151,6 +155,9 @@ const ImageContributionPieChart = ({ data }) => {
 
     useEffect(() => {
         if (!data || data.length === 0) return;
+        if (data.length > 20) {
+            data = data.slice(0, 20); // Limit to top 20 images for clarity
+        }
 
         const width = 600;
         const height = 400;
