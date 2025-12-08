@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import './App.css';
 
 function ImageDetail() {
     const { imageId, errorType } = useParams();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const location = useLocation();
+    const passedErrorCount = location.state?.errorCount;
+
     const epoch = searchParams.get('epoch') || '1';
-    const [hoveredBoxIndex, setHoveredBoxIndex] = useState(-1); 
+    const [hoveredBoxIndex, setHoveredBoxIndex] = useState(-1);
     const [images, setImages] = useState({ backbone: [], fpn: [], pool: [] });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -33,7 +36,7 @@ function ImageDetail() {
             loadedImages.backbone = [`/data/gradcams/epoch_${epoch}/backbone/img_${imageId}.png`];
 
             // FPN maps (multiple layers)
-            loadedImages.fpn = Array.from({ length: fpnLayers }, (_, i) => 
+            loadedImages.fpn = Array.from({ length: fpnLayers }, (_, i) =>
                 `/data/gradcams/epoch_${epoch}/fpn/${i}_img_${imageId}.png`
             );
 
@@ -43,7 +46,7 @@ function ImageDetail() {
             console.log('Loaded image paths:', loadedImages);
             setImages(loadedImages);
             setLoading(false);
-            
+
             const promises = [
                 fetch(`/data/results_epoch_${epoch}.json`)
                     .then(res => {
@@ -51,7 +54,7 @@ function ImageDetail() {
                         return res.json();
                     })
                     .then(data => processData(data, imageId, errorType)),
-                
+
                 fetch(`/data/val.json`)
                     .then(res => {
                         if (!res.ok) throw new Error('Failed to load val.json');
@@ -76,10 +79,10 @@ function ImageDetail() {
     }, [epoch, imageId]);
     const processValData = (data, imageId) => {
         let imageErrorMetadata = []
-        for(let i =0; i< data.annotations.length; i++) {
-            if(data.annotations[i].image_id.toString() === imageId.toString()){
+        for (let i = 0; i < data.annotations.length; i++) {
+            if (data.annotations[i].image_id.toString() === imageId.toString()) {
                 imageErrorMetadata.push(
-                    { 
+                    {
                         confidence: 1,
                         predicted_classes: data.annotations[i].category_id,
                         box: data.annotations[i].bbox,
@@ -105,7 +108,7 @@ function ImageDetail() {
         if (!errorCode) {
             throw new Error(`Unknown error type: ${errorType}`);
         }
-        if(errorCode === "Bkg") {
+        if (errorCode === "Bkg") {
             return [];
         }
 
@@ -115,11 +118,11 @@ function ImageDetail() {
         }
         let index = [];
         let imageErrorMetadata = [];
-        for (let i = 0; i< imageData.errors.length; i++) {
+        for (let i = 0; i < imageData.errors.length; i++) {
             if (imageData.errors[i] === errorCode) {
                 index.push(i);
                 imageErrorMetadata.push(
-                    { 
+                    {
                         confidence: imageData.confidences[i],
                         predicted_classes: imageData.predicted_classes[i],
                         box: imageData.boxes[i],
@@ -127,26 +130,26 @@ function ImageDetail() {
                     }
                 );
             }
-            if(i >= 5) break;  // Safety break to avoid too many boxes
+            if (i >= 5) break;  // Safety break to avoid too many boxes
         }
 
         return imageErrorMetadata
     };
 
     // Helper function to convert hex color to rgba format with specified opacity
-const hexToRgbA = (hex, opacity) => {
-    let c;
-    if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
-        c= hex.substring(1).split('');
-        if(c.length===3){
-            c= [c[0], c[0], c[1], c[1], c[2], c[2]];
+    const hexToRgbA = (hex, opacity) => {
+        let c;
+        if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
+            c = hex.substring(1).split('');
+            if (c.length === 3) {
+                c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+            }
+            c = '0x' + c.join('');
+            return 'rgba(' + [(c >> 16) & 255, (c >> 8) & 255, c & 255].join(',') + ',' + opacity + ')';
         }
-        c= '0x'+c.join('');
-        return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+','+opacity+')';
-    }
-    // Fallback if the input isn't a valid hex
-    return `rgba(0, 0, 0, ${opacity})`; 
-};
+        // Fallback if the input isn't a valid hex
+        return `rgba(0, 0, 0, ${opacity})`;
+    };
 
     const drawBoundingBoxes = () => {
         if (!imgRef.current || !canvasRef.current || imageErrorData.length === 0) return;
@@ -171,7 +174,7 @@ const hexToRgbA = (hex, opacity) => {
             const [x1, y1, x2, y2] = box;
             const width = x2 - x1;
             const height = y2 - y1;
-            
+
             // Determine opacity: full opacity for hovered box, 0.4 for others, 1 if no box is hovered.
             let opacity = 1;
             if (hoveredBoxIndex !== -1) {
@@ -217,12 +220,12 @@ const hexToRgbA = (hex, opacity) => {
                 break;
             }
         }
-        
+
         if (newHoverIndex !== hoveredBoxIndex) {
             setHoveredBoxIndex(newHoverIndex);
         }
     };
-    
+
     // Use effect to draw when image loads AND when hover state changes
     useEffect(() => {
         if (imgRef.current && imgRef.current.complete) {
@@ -259,35 +262,97 @@ const hexToRgbA = (hex, opacity) => {
     return (
         <div className="app">
             <header className="app-header">
-                <button className="back-button" onClick={() => navigate(-1)}>← Back</button>
-                <h1>Image Detail: Feature Map Flow</h1>
-                <p className="subtitle">Epoch {epoch} • Image ID {imageId}</p>
+                <div>
+                    <button
+                        className="back-button"
+                        onClick={() => navigate(-1)}
+                        style={{
+                            padding: '0.4rem 0.8rem',
+                            fontSize: '0.9rem',
+                            marginBottom: '1rem',
+                            cursor: 'pointer',
+                            background: 'var(--surface)',
+                            color: 'var(--text-primary)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '4px'
+                        }}
+                    >
+                        ← Back to Image Grid
+                    </button>
+                    <h1>Feature Map Flow</h1>
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap', width: '100%' }}>
+                    <div style={{
+                        background: 'var(--surface)',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text-secondary)',
+                        flex: 1,
+                        textAlign: 'center',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        whiteSpace: 'nowrap'
+                    }}>
+                        <strong>Epoch {epoch}</strong>&nbsp;• Image ID {imageId}
+                    </div>
+
+                    <div style={{
+                        background: 'rgba(37, 99, 235, 0.1)',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        color: 'white',
+                        border: '1px solid rgba(37, 99, 235, 0.2)',
+                        flex: 1,
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap'
+                    }}>
+                        Error Type: <strong>{errorType.charAt(0).toUpperCase() + errorType.slice(1)}</strong>
+                    </div>
+
+                    <div style={{
+                        background: 'rgba(37, 99, 235, 0.1)',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        color: 'white',
+                        border: '1px solid rgba(37, 99, 235, 0.2)',
+                        flex: 1,
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap'
+                    }}>
+                        Error Count: <strong>{passedErrorCount ?? imageErrorData.length}</strong>
+                    </div>
+                </div>
             </header>
 
             <div className="image-detail-container">
-                <h2>Error Type: {errorType.charAt(0).toUpperCase() + errorType.slice(1)}</h2>
                 <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
                     {
                         imageErrorData.length > 0 ?
-                            <><img 
+                            <><img
                                 ref={imgRef}
-                                src={resolveImagePath(imageId)} 
+                                src={resolveImagePath(imageId)}
                                 alt={`Image ${imageId}`}
                                 onLoad={drawBoundingBoxes}
                                 style={{ display: 'block', maxWidth: '100%' }}
                                 width={'100%'}
                             />
-                            <canvas
-                                ref={canvasRef}
-                                style={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    maxWidth: '100%',
-                                    height: 'auto',
-                                    display: imageErrorData.length > 0 ? 'block' : 'none'
-                                }}
-                            /></>:
+                                <canvas
+                                    ref={canvasRef}
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        maxWidth: '100%',
+                                        height: 'auto',
+                                        display: imageErrorData.length > 0 ? 'block' : 'none'
+                                    }}
+                                /></> :
                             <></>
                     }
                 </div>

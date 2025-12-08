@@ -170,8 +170,8 @@ const resolveImagePath = (imageId) => {
 const ImageGrid = ({ data, epoch, errorType }) => {
     const navigate = useNavigate();
 
-    const handleImageClick = (imageId) => {
-        navigate(`/image/${imageId}/${errorType}?epoch=${epoch}`);
+    const handleImageClick = (imageId, errorCount) => {
+        navigate(`/image/${imageId}/${errorType}?epoch=${epoch}`, { state: { errorCount } });
     };
     return (
         <div className="image-grid">
@@ -179,7 +179,7 @@ const ImageGrid = ({ data, epoch, errorType }) => {
                 <div
                     key={item.id}
                     className="image-card"
-                    onClick={() => handleImageClick(item.id)}
+                    onClick={() => handleImageClick(item.id, item.value)}
                     style={{ cursor: 'pointer', flexDirection: 'column', alignItems: 'stretch' }}
                 >
                     <div style={{
