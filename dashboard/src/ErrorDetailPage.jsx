@@ -3,6 +3,9 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import * as d3 from 'd3';
 import './App.css'; // Reuse main styles
 
+import MetricsCard from './components/MetricsCard';
+import './components/MetricsCard.css';
+
 const ErrorDetailPage = () => {
     const { errorType } = useParams();
     const [searchParams] = useSearchParams();
@@ -55,7 +58,7 @@ const ErrorDetailPage = () => {
         data.mispredictions.forEach(item => {
             const count = item.errors.filter(e => e === errorCode).length;
             if (count > 0) {
-                imageCounts[item.image_id] = {count: count, boxes: item.boxes};
+                imageCounts[item.image_id] = { count: count, boxes: item.boxes };
             }
         });
 
@@ -72,12 +75,71 @@ const ErrorDetailPage = () => {
     if (loading) return <div className="loading-container"><div className="loading-spinner"></div></div>;
     if (error) return <div className="error-container"><h2>Error</h2><p>{error}</p><button onClick={() => navigate('/')}>Back to Dashboard</button></div>;
 
+    const totalErrors = chartData.reduce((sum, item) => sum + item.value, 0);
+    const affectedImages = chartData.length;
+
     return (
         <div className="app">
             <header className="app-header">
-                <button className="back-button" onClick={() => navigate('/')}>← Back to Dashboard</button>
+                <button
+                    className="back-button"
+                    onClick={() => navigate('/')}
+                    style={{
+                        padding: '0.4rem 0.8rem',
+                        fontSize: '0.9rem',
+                        marginBottom: '1rem',
+                        cursor: 'pointer',
+                        background: 'var(--surface)',
+                        color: 'var(--text-primary)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '4px'
+                    }}
+                >
+                    ← Back to Dashboard
+                </button>
                 <h1>{errorType.charAt(0).toUpperCase() + errorType.slice(1)} Error Analysis</h1>
-                <p className="subtitle">Epoch {epoch} • Per-Image Contribution</p>
+
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap', width: '100%' }}>
+                    <div style={{
+                        background: 'var(--surface)',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '6px',
+                        fontSize: '0.9rem',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text-secondary)',
+                        flex: 1,
+                        textAlign: 'center',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <strong>Epoch {epoch}</strong>&nbsp;• Per-Image Contribution
+                    </div>
+                    <div style={{
+                        background: 'rgba(37, 99, 235, 0.1)',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '6px',
+                        fontSize: '0.9rem',
+                        color: 'var(--primary-color)',
+                        border: '1px solid rgba(37, 99, 235, 0.2)',
+                        flex: 1,
+                        textAlign: 'center'
+                    }}>
+                        Total {errorType} errors in this epoch: <strong>{totalErrors}</strong>
+                    </div>
+                    <div style={{
+                        background: 'rgba(37, 99, 235, 0.1)',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '6px',
+                        fontSize: '0.9rem',
+                        color: 'var(--primary-color)',
+                        border: '1px solid rgba(37, 99, 235, 0.2)',
+                        flex: 1,
+                        textAlign: 'center'
+                    }}>
+                        Number of images containing this error: <strong>{affectedImages}</strong>
+                    </div>
+                </div>
             </header>
 
             <div className="viz-container">
@@ -116,7 +178,7 @@ const removeBorderFromSelectedImage = (imageId) => {
     if (imgElement) {
         imgElement.style.border = 'none';
     }
-}   
+}
 const ImageGrid = ({ data, epoch, errorType }) => {
     console.log(data);
     const navigate = useNavigate();
@@ -128,16 +190,16 @@ const ImageGrid = ({ data, epoch, errorType }) => {
     return (
         <div className="image-grid">
             {data.map(item => (
-                <div 
-                    key={item.id} 
-                    className="image-card" 
+                <div
+                    key={item.id}
+                    className="image-card"
                     onClick={() => handleImageClick(item.id)}
                     style={{ cursor: 'pointer' }}
                 >
-                    <img 
-                        src={resolveImagePath(item.id)} 
-                        id={`${item.id}`} 
-                        alt={`Image ${item.id}`} 
+                    <img
+                        src={resolveImagePath(item.id)}
+                        id={`${item.id}`}
+                        alt={`Image ${item.id}`}
                     />
                 </div>
             ))}
