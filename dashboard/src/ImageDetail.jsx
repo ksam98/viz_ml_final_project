@@ -8,6 +8,7 @@ function ImageDetail() {
     const navigate = useNavigate();
     const location = useLocation();
     const passedErrorCount = location.state?.errorCount;
+    const [activeView, setActiveView] = useState('Original');
 
     const epoch = searchParams.get('epoch') || '1';
     const [hoveredBoxIndex, setHoveredBoxIndex] = useState(-1);
@@ -24,6 +25,25 @@ function ImageDetail() {
         const imageFileName = padding + imageId.toString();
         return '/images/' + imageFileName + '.jpg';
     }
+
+    const getViewUrl = (view) => {
+        switch (view) {
+            case 'Original': return resolveImagePath(imageId);
+            case 'Backbone Grad-CAM': return images.backbone[0];
+            case 'FPN Layer 0': return images.fpn[0];
+            case 'FPN Layer 1': return images.fpn[1];
+            case 'FPN Layer 2': return images.fpn[2];
+            case 'Pool Layer': return images.pool[0];
+            default: return resolveImagePath(imageId);
+        }
+    };
+
+    const toggleOptions = [
+        'Original',
+        ...(images.fpn?.length ? ['FPN Layer 0', 'FPN Layer 1', 'FPN Layer 2'] : []),
+        ...(images.pool?.length ? ['Pool Layer'] : []),
+        ...(images.backbone?.length ? ['Backbone Grad-CAM'] : [])
+    ];
 
     useEffect(() => {
         setLoading(true);
@@ -231,7 +251,7 @@ function ImageDetail() {
         if (imgRef.current && imgRef.current.complete) {
             drawBoundingBoxes();
         }
-    }, [imageErrorData, hoveredBoxIndex]); // Added hoveredBoxIndex as dependency
+    }, [imageErrorData, hoveredBoxIndex, activeView]); // Added hoveredBoxIndex and activeView as dependency
 
     // Add event listeners when component mounts or dependencies change
     useEffect(() => {
@@ -370,13 +390,39 @@ function ImageDetail() {
             </div> */}
 
             <div className="image-detail-container">
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                    Toggle view to visualize bounding boxes
+                </p>
+                <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {toggleOptions.map(option => (
+                        <button
+                            key={option}
+                            onClick={() => setActiveView(option)}
+                            style={{
+                                padding: '0.5rem 1rem',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border)',
+                                background: activeView === option ? 'var(--primary-color)' : 'var(--surface)',
+                                color: activeView === option ? 'white' : 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem',
+                                fontWeight: 500,
+                                flex: 1,
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            {option}
+                        </button>
+                    ))}
+                </div>
+
                 <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
                     {
                         imageErrorData.length > 0 ?
                             <><img
                                 ref={imgRef}
-                                src={resolveImagePath(imageId)}
-                                alt={`Image ${imageId}`}
+                                src={getViewUrl(activeView)}
+                                alt={`Image ${imageId} - ${activeView}`}
                                 onLoad={drawBoundingBoxes}
                                 style={{ display: 'block', maxWidth: '100%' }}
                                 width={'100%'}
