@@ -75,7 +75,7 @@ function Dashboard() {
             metadata: {
                 model: "Faster R-CNN",
                 dataset: "COCO Val 2017 (Subset)",
-                num_images: 462,
+                num_images: 564,
                 num_classes: 2
             },
             overall_metrics: metrics,

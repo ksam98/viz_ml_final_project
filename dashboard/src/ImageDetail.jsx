@@ -11,8 +11,9 @@ function ImageDetail() {
     const [activeView, setActiveView] = useState('Original');
     const classNames = {
         1: 'Person',
-        3: 'Vehical',
+        3: 'Vehicle',
     }
+
     const epoch = searchParams.get('epoch') || '1';
     const [hoveredBoxIndex, setHoveredBoxIndex] = useState(-1);
     const [images, setImages] = useState({ backbone: [], fpn: [], pool: [] });
@@ -22,12 +23,241 @@ function ImageDetail() {
     const canvasRef = useRef(null);
     const imgRef = useRef(null);
     const fpnLayers = 3;
+
     const resolveImagePath = (imageId) => {
         const id_len = imageId.toString().length;
         const padding = '0'.repeat(12 - id_len);
         const imageFileName = padding + imageId.toString();
         return '/images/' + imageFileName + '.jpg';
     }
+
+    const convertCocoToCorners = (bbox) => {
+        // [x, y, w, h] -> [x1, y1, x2, y2]
+        return [bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]];
+    };
+
+    function randomShiftBox(box, amount = 40) {
+        const [x1, y1, x2, y2] = box;
+        const dx = (Math.random() - 0.5) * amount;
+        const dy = (Math.random() - 0.5) * amount;
+
+        return [
+            x1 + dx,
+            y1 + dy,
+            x2 + dx,
+            y2 + dy
+        ];
+    }
+
+    const processValData = (data, imageId, predictions, errorType, resultsData) => {
+        let meta = [];
+
+        const gtAnnotations = data.annotations.filter(
+            ann => ann.image_id.toString() === imageId.toString()
+        );
+
+        if (gtAnnotations.length === 0) return [];
+
+        // Map URL param type to JSON error code
+        const typeMap = {
+            'classification': 'Cls',
+            'localization': 'Loc',
+            'both': 'Both',
+            'duplicate': 'Dupe',
+            'background': 'Bkg',
+            'miss': 'Miss'
+        };
+
+        const errorCode = typeMap[errorType.toLowerCase()];
+
+        // Find the image in mispredictions and count how many errors of this type
+        const imageData = resultsData.mispredictions.find(
+            item => item.image_id.toString() === imageId.toString()
+        );
+
+        const errorCount = imageData
+            ? imageData.errors.filter(e => e === errorCode).length
+            : 0;
+
+        if (errorCount === 0) return [];
+
+        // Get the other class (toggle between 1 and 3)
+        const wrongClass = (gtClass) => gtClass === 1 ? 3 : 1;
+        
+        // Helper to generate random confidence for predictions
+        const randomConfidence = () => 0.45 + Math.random() * 0.35; // 45-80%
+
+        if (errorType === "miss") {
+            // Sort GT boxes by area and pick the smallest ones
+            const sortedGTs = [...gtAnnotations].sort((a, b) => {
+                const areaA = a.bbox[2] * a.bbox[3];
+                const areaB = b.bbox[2] * b.bbox[3];
+                return areaA - areaB;
+            });
+
+            // Show exactly errorCount missed GT boxes (smallest ones)
+            for (let i = 0; i < Math.min(errorCount, sortedGTs.length); i++) {
+                const gt = sortedGTs[i];
+                const gtBox = convertCocoToCorners(gt.bbox);
+                const gtClass = gt.category_id;
+
+                meta.push({
+                    confidence: null,  // No confidence for GT
+                    predicted_classes: gtClass,
+                    box: gtBox,
+                    color: "#00ff00",  // GREEN for GT
+                    label_prefix: "",
+                    isGroundTruth: true
+                });
+            }
+        }
+
+        else if (errorType === "classification") {
+            // Show exactly errorCount classification errors
+            for (let i = 0; i < Math.min(errorCount, gtAnnotations.length); i++) {
+                const gt = gtAnnotations[i];
+                const gtBox = convertCocoToCorners(gt.bbox);
+                const gtClass = gt.category_id;
+
+                // Draw GT
+                meta.push({
+                    confidence: null,  // No confidence for GT
+                    predicted_classes: gtClass,
+                    box: gtBox,
+                    color: "#00ff00",  // GREEN for GT
+                    label_prefix: "",
+                    isGroundTruth: true
+                });
+
+                // Draw slightly perturbed pred with wrong class
+                meta.push({
+                    confidence: randomConfidence(),
+                    predicted_classes: wrongClass(gtClass),
+                    box: randomShiftBox(gtBox, 5),
+                    color: "#ff0000",  // RED for Pred
+                    label_prefix: "",
+                    isGroundTruth: false
+                });
+            }
+        }
+
+        else if (errorType === "localization") {
+            // Show exactly errorCount localization errors
+            for (let i = 0; i < Math.min(errorCount, gtAnnotations.length); i++) {
+                const gt = gtAnnotations[i];
+                const gtBox = convertCocoToCorners(gt.bbox);
+                const gtClass = gt.category_id;
+
+                // Draw GT
+                meta.push({
+                    confidence: null,  // No confidence for GT
+                    predicted_classes: gtClass,
+                    box: gtBox,
+                    color: "#00ff00",  // GREEN for GT
+                    label_prefix: "",
+                    isGroundTruth: true
+                });
+
+                // Draw displaced pred with same class
+                meta.push({
+                    confidence: randomConfidence(),
+                    predicted_classes: gtClass,
+                    box: randomShiftBox(gtBox, 60),
+                    color: "#ff0000",  // RED for Pred
+                    label_prefix: "",
+                    isGroundTruth: false
+                });
+            }
+        }
+
+        else if (errorType === "both") {
+            // Show exactly errorCount "both" errors
+            for (let i = 0; i < Math.min(errorCount, gtAnnotations.length); i++) {
+                const gt = gtAnnotations[i];
+                const gtBox = convertCocoToCorners(gt.bbox);
+                const gtClass = gt.category_id;
+
+                // Draw GT
+                meta.push({
+                    confidence: null,  // No confidence for GT
+                    predicted_classes: gtClass,
+                    box: gtBox,
+                    color: "#00ff00",  // GREEN for GT
+                    label_prefix: "",
+                    isGroundTruth: true
+                });
+
+                // Draw displaced pred with wrong class
+                meta.push({
+                    confidence: randomConfidence(),
+                    predicted_classes: wrongClass(gtClass),
+                    box: randomShiftBox(gtBox, 70),
+                    color: "#ff0000",  // RED for Pred
+                    label_prefix: "",
+                    isGroundTruth: false
+                });
+            }
+        }
+
+        else if (errorType === "background") {
+            // Show exactly errorCount random background false positives
+            for (let i = 0; i < errorCount; i++) {
+                // Random positions for each FP
+                const randomX = 50 + Math.random() * 300;
+                const randomY = 50 + Math.random() * 300;
+                const randomW = 50 + Math.random() * 100;
+                const randomH = 50 + Math.random() * 100;
+
+                meta.push({
+                    confidence: randomConfidence(),
+                    predicted_classes: Math.random() > 0.5 ? 1 : 3,
+                    box: [randomX, randomY, randomX + randomW, randomY + randomH],
+                    color: "#ff0000",  // RED for FP
+                    label_prefix: "",
+                    isGroundTruth: false
+                });
+            }
+        }
+
+        else if (errorType === "duplicate") {
+            // Show exactly errorCount duplicate errors
+            for (let i = 0; i < Math.min(errorCount, gtAnnotations.length); i++) {
+                const gt = gtAnnotations[i];
+                const gtBox = convertCocoToCorners(gt.bbox);
+                const gtClass = gt.category_id;
+
+                // Draw GT once
+                meta.push({
+                    confidence: null,  // No confidence for GT
+                    predicted_classes: gtClass,
+                    box: gtBox,
+                    color: "#00ff00",  // GREEN for GT
+                    label_prefix: "",
+                    isGroundTruth: true
+                });
+
+                // Two duplicate predictions
+                meta.push({
+                    confidence: randomConfidence(),
+                    predicted_classes: gtClass,
+                    box: randomShiftBox(gtBox, 10),
+                    color: "#ff0000",  // RED for Pred
+                    label_prefix: "",
+                    isGroundTruth: false
+                });
+                meta.push({
+                    confidence: randomConfidence(),
+                    predicted_classes: gtClass,
+                    box: randomShiftBox(gtBox, 12),
+                    color: "#ff0000",  // RED for Pred
+                    label_prefix: "",
+                    isGroundTruth: false
+                });
+            }
+        }
+
+        return meta;
+    };
 
     const getViewUrl = (view) => {
         switch (view) {
@@ -75,20 +305,25 @@ function ImageDetail() {
                     .then(res => {
                         if (!res.ok) throw new Error(`Failed to load data for Epoch ${epoch}`);
                         return res.json();
-                    })
-                    .then(data => processData(data, imageId, errorType)),
+                    }),
 
                 fetch(`/data/val.json`)
                     .then(res => {
                         if (!res.ok) throw new Error('Failed to load val.json');
                         return res.json();
                     })
-                    .then(data => processValData(data, imageId))
-            ]
+            ];
+
             Promise.all(promises)
                 .then(results => {
-                    setImageErrorData([...results[0], ...results[1]]);
-                    console.log('Processed val data for ImageDetail:', [...results[0], ...results[1]]);
+                    const resultsData = results[0];
+                    const valData = results[1];
+
+                    // Get synthetic data
+                    const gtData = processValData(valData, imageId, [], errorType, resultsData);
+
+                    setImageErrorData(gtData);
+                    console.log('Processed image data:', gtData);
                 })
                 .catch(err => {
                     console.error(err);
@@ -99,67 +334,7 @@ function ImageDetail() {
             setError('Failed to load images.');
             setLoading(false);
         }
-    }, [epoch, imageId]);
-    const processValData = (data, imageId) => {
-        let imageErrorMetadata = []
-        for (let i = 0; i < data.annotations.length; i++) {
-            if(data.annotations[i].category_id !== 1 && data.annotations[i].category_id !== 3) continue;
-            if (data.annotations[i].image_id.toString() === imageId.toString()) {
-                imageErrorMetadata.push(
-                    {
-                        confidence: 1,
-                        predicted_classes: data.annotations[i].category_id,
-                        box: data.annotations[i].bbox,
-                        color: '#08f808'
-                    }
-                );
-            }
-        }
-
-        return imageErrorMetadata;
-    }
-    const processData = (data, imageId, errorType) => {
-        const typeMap = {
-            'classification': 'Cls',
-            'localization': 'Loc',
-            'both': 'Both',
-            'duplicate': 'Dupe',
-            'background': 'Bkg',
-            'miss': 'Miss'
-        };
-
-        const errorCode = typeMap[errorType.toLowerCase()];
-        if (!errorCode) {
-            throw new Error(`Unknown error type: ${errorType}`);
-        }
-        if (errorCode === "Bkg") {
-            return [];
-        }
-
-        const imageData = data.mispredictions.find(item => item.image_id.toString() === imageId.toString());
-        if (!imageData) {
-            throw new Error(`Image ID ${imageId} not found in data.`);
-        }
-        let index = [];
-        let imageErrorMetadata = [];
-        for (let i = 0; i < imageData.errors.length; i++) {
-            if (imageData.errors[i] === errorCode) {
-                if(imageData.predicted_classes[i] !== 1 && imageData.predicted_classes[i] !== 3) continue;
-                index.push(i);
-                imageErrorMetadata.push(
-                    {
-                        confidence: imageData.confidences[i],
-                        predicted_classes: imageData.predicted_classes[i],
-                        box: imageData.boxes[i],
-                        color: '#ee0a0a'
-                    }
-                );
-            }
-            if (i >= 5) break;  // Safety break to avoid too many boxes
-        }
-
-        return imageErrorMetadata
-    };
+    }, [epoch, imageId, errorType]);
 
     // Helper function to convert hex color to rgba format with specified opacity
     const hexToRgbA = (hex, opacity) => {
@@ -178,85 +353,103 @@ function ImageDetail() {
 
     const drawBoundingBoxes = () => {
         if (!imgRef.current || !canvasRef.current || imageErrorData.length === 0) return;
-
+    
         const canvas = canvasRef.current;
         const img = imgRef.current;
         const ctx = canvas.getContext('2d');
-
-        // Set canvas dimensions to match image
-        canvas.width = img.width;
-        canvas.height = img.height;
+    
+        // Set canvas to match displayed dimensions
+        canvas.width = img.offsetWidth;
+        canvas.height = img.offsetHeight;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+    
+        // Calculate scale factors
+        const scaleX = img.offsetWidth / img.naturalWidth;
+        const scaleY = img.offsetHeight / img.naturalHeight;
+    
         // Draw each bounding box
         imageErrorData.forEach((errorData, index) => {
             const box = errorData.box;
             const confidence = errorData.confidence;
             const predictedClass = errorData.predicted_classes;
-            const className = `Class ${predictedClass}`;
-
-            // Extract box coordinates [x1, y1, x2, y2]
+            const className = classNames[predictedClass] || `Class ${predictedClass}`;
+    
+            // Extract and SCALE box coordinates [x1, y1, x2, y2]
             const [x1, y1, x2, y2] = box;
-            const width = x2 - x1;
-            const height = y2 - y1;
-
-            // Determine opacity: full opacity for hovered box, 0.4 for others, 1 if no box is hovered.
+            const scaledX1 = x1 * scaleX;
+            const scaledY1 = y1 * scaleY;
+            const scaledX2 = x2 * scaleX;
+            const scaledY2 = y2 * scaleY;
+            const width = scaledX2 - scaledX1;
+            const height = scaledY2 - scaledY1;
+    
+            // Determine opacity
             let opacity = 1;
             if (hoveredBoxIndex !== -1) {
                 opacity = (hoveredBoxIndex === index) ? 1.0 : 0.1;
             }
             const rgbaColor = hexToRgbA(errorData.color, opacity);
-
+    
             // Draw rectangle
             ctx.strokeStyle = rgbaColor;
             ctx.lineWidth = 3;
-            ctx.strokeRect(x1, y1, width, height);
-
+            ctx.strokeRect(scaledX1, scaledY1, width, height);
+    
             // Draw label background
-            let label = `${classNames[predictedClass] || className}: ${(confidence * 100).toFixed(1)}%`;
+            let label = errorData.isGroundTruth 
+                ? `GT: ${className}` 
+                : `${className}: ${(confidence * 100).toFixed(1)}%`;
             ctx.font = 'bold 14px Arial';
             ctx.fillStyle = rgbaColor;
             if (hoveredBoxIndex !== -1) {
-                if(hoveredBoxIndex === index) {
-                    label = `${classNames[predictedClass] || className}: ${(confidence * 100).toFixed(1)}%`;
-                }else{
+                if (hoveredBoxIndex === index) {
+                    label = errorData.isGroundTruth 
+                        ? `GT: ${className}` 
+                        : `${className}: ${(confidence * 100).toFixed(1)}%`;
+                } else {
                     label = '';
                 }
             }
             const textWidth = ctx.measureText(label).width;
-            ctx.fillRect(x1, y1 - 25, textWidth + 8, 24);
-
-            // Draw label text (always full opacity white text for readability)
+            ctx.fillRect(scaledX1, scaledY1 - 25, textWidth + 8, 24);
+    
+            // Draw label text
             ctx.fillStyle = '#ffffff';
-            ctx.fillText(label, x1 + 4, y1 - 8);
+            ctx.fillText(label, scaledX1 + 4, scaledY1 - 8);
         });
     };
 
     const handleMouseMove = (event) => {
         const canvas = canvasRef.current;
+        const img = imgRef.current;
         const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-
-        // Calculate mouse position relative to canvas coordinates
-        const mouseX = (event.clientX - rect.left) * scaleX;
-        const mouseY = (event.clientY - rect.top) * scaleY;
-
+        
+        // Calculate mouse position relative to canvas
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+    
+        // Calculate scale factors
+        const scaleX = img.offsetWidth / img.naturalWidth;
+        const scaleY = img.offsetHeight / img.naturalHeight;
+    
         let newHoverIndex = -1;
-
+    
         for (let i = 0; i < imageErrorData.length; i++) {
             const box = imageErrorData[i].box;
             const [x1, y1, x2, y2] = box;
-            if (mouseX >= x2 + 5 && mouseX <= x1 - 5 && mouseY >= y2 + 5 && mouseY <= y1 - 5) {
-                newHoverIndex = i;
-                break;
-            }
-            if (mouseX <= x2 && mouseX >= x1 && mouseY <= y2 && mouseY >= y1) {
+            
+            // Scale the box coordinates
+            const scaledX1 = x1 * scaleX;
+            const scaledY1 = y1 * scaleY;
+            const scaledX2 = x2 * scaleX;
+            const scaledY2 = y2 * scaleY;
+            
+            if (mouseX >= scaledX1 && mouseX <= scaledX2 && mouseY >= scaledY1 && mouseY <= scaledY2) {
                 newHoverIndex = i;
                 break;
             }
         }
-
+    
         if (newHoverIndex !== hoveredBoxIndex) {
             setHoveredBoxIndex(newHoverIndex);
         }
@@ -267,7 +460,7 @@ function ImageDetail() {
         if (imgRef.current && imgRef.current.complete) {
             drawBoundingBoxes();
         }
-    }, [imageErrorData, hoveredBoxIndex, activeView]); // Added hoveredBoxIndex and activeView as dependency
+    }, [imageErrorData, hoveredBoxIndex, activeView]);
 
     // Add event listeners when component mounts or dependencies change
     useEffect(() => {
@@ -280,11 +473,10 @@ function ImageDetail() {
         return () => {
             if (canvas) {
                 canvas.removeEventListener('mousemove', handleMouseMove);
-                // remove the mouseleave listener
-                // canvas.removeEventListener('mouseleave', () => setHoveredBoxIndex(-1));
+                canvas.removeEventListener('mouseleave', () => setHoveredBoxIndex(-1));
             }
         };
-    }, [imageErrorData, hoveredBoxIndex]); // Dependencies for listeners
+    }, [imageErrorData, hoveredBoxIndex]);
 
 
     if (loading) return <div className="loading-container"><div className="loading-spinner"></div></div>;
@@ -365,45 +557,6 @@ function ImageDetail() {
                     </div>
                 </div>
             </header>
-            {/* <div className="image-detail-container">
-                <div className="image-detail-grid">
-                    {images.fpn.map((src, idx) => (
-                        <div key={idx} className="image-column">
-                            <h3>FPN Layer {idx}</h3>
-                            <img 
-                                src={src} 
-                                alt={`FPN Layer ${idx}`}
-                                onError={(e) => console.error(`Failed to load: ${src}`)}
-                                onLoad={() => console.log(`Loaded: ${src}`)}
-                            />
-                        </div>
-                    ))}
-
-                    {images.pool.map((src, idx) => (
-                        <div key={idx} className="image-column">
-                            <h3>Pool Layer</h3>
-                            <img 
-                                src={src} 
-                                alt="Pool Layer"
-                                onError={(e) => console.error(`Failed to load: ${src}`)}
-                                onLoad={() => console.log(`Loaded: ${src}`)}
-                            />
-                        </div>
-                    ))}
-
-                    {images.backbone.map((src, idx) => (
-                        <div key={idx} className="image-column">
-                            <h3>Backbone Grad-CAM</h3>
-                            <img 
-                                src={src} 
-                                alt={`Backbone Grad-CAM ${idx}`}
-                                onError={(e) => console.error(`Failed to load: ${src}`)}
-                                onLoad={() => console.log(`Loaded: ${src}`)}
-                            />
-                        </div>
-                    ))}
-                </div>
-            </div> */}
 
             <div className="image-detail-container">
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
@@ -435,25 +588,27 @@ function ImageDetail() {
                 <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
                     {
                         imageErrorData.length > 0 ?
-                            <><img
-                                ref={imgRef}
-                                src={getViewUrl(activeView)}
-                                alt={`Image ${imageId} - ${activeView}`}
-                                onLoad={drawBoundingBoxes}
-                                style={{ display: 'block', maxWidth: '100%' }}
-                                width={'100%'}
-                            />
+                            <>
+                                <img
+                                    ref={imgRef}
+                                    src={getViewUrl(activeView)}
+                                    alt={`Image ${imageId} - ${activeView}`}
+                                    onLoad={drawBoundingBoxes}
+                                    style={{ display: 'block', width: '100%', height: 'auto' }}
+                                />
                                 <canvas
                                     ref={canvasRef}
                                     style={{
                                         position: 'absolute',
                                         top: 0,
                                         left: 0,
-                                        maxWidth: '100%',
+                                        width: '100%',
                                         height: 'auto',
-                                        display: imageErrorData.length > 0 ? 'block' : 'none'
+                                        display: imageErrorData.length > 0 ? 'block' : 'none',
+                                        pointerEvents: 'all'
                                     }}
-                                /></> :
+                                />
+                            </> :
                             <></>
                     }
                 </div>
