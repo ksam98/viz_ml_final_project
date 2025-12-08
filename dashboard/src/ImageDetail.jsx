@@ -16,12 +16,108 @@ function ImageDetail() {
 
     const epoch = searchParams.get('epoch') || '1';
     const [hoveredBoxIndex, setHoveredBoxIndex] = useState(-1);
+    const [showMagnifier, setShowMagnifier] = useState(false);
+    const [magnifierState, setMagnifierState] = useState({ x: 0, y: 0, show: false });
+    const magnifierCanvasRef = useRef(null);
     const [images, setImages] = useState({ backbone: [], fpn: [], pool: [] });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [imageErrorData, setImageErrorData] = useState([]);
     const canvasRef = useRef(null);
-    const imgRef = useRef(null);
+    const imgRef = useRef(null); // Moved up for better scope
+
+    // Draw zoomed bounding boxes onto the magnifier canvas
+    useEffect(() => {
+        if (!showMagnifier || !magnifierState.show || !canvasRef.current || !magnifierCanvasRef.current || !imgRef.current) return;
+
+        const mainCanvas = canvasRef.current;
+        const magCanvas = magnifierCanvasRef.current;
+        const ctx = magCanvas.getContext('2d');
+        const img = imgRef.current;
+
+        // Clear magnifier canvas
+        ctx.clearRect(0, 0, magCanvas.width, magCanvas.height);
+
+        // Zoom settings
+        const zoom = 2.5;
+        const lensSize = 300;
+
+        // Calculate source rectangle from main canvas
+        // The magnifier is centered at magnifierState.x, magnifierState.y
+        // We want to capture the area centered there, with size = lensSize / zoom
+        const sourceW = lensSize / zoom;
+        const sourceH = lensSize / zoom;
+        const sourceX = magnifierState.x - (sourceW / 2);
+        const sourceY = magnifierState.y - (sourceH / 2);
+
+        // Draw the zoomed slice of the main canvas (which includes the image and its boxes)
+        // Ensure source coordinates are within bounds
+        const clampedSourceX = Math.max(0, Math.min(sourceX, mainCanvas.width - sourceW));
+        const clampedSourceY = Math.max(0, Math.min(sourceY, mainCanvas.height - sourceH));
+        const clampedSourceW = Math.min(sourceW, mainCanvas.width - clampedSourceX);
+        const clampedSourceH = Math.min(sourceH, mainCanvas.height - clampedSourceY);
+
+        if (clampedSourceW > 0 && clampedSourceH > 0) {
+            ctx.drawImage(
+                mainCanvas,
+                clampedSourceX, clampedSourceY, clampedSourceW, clampedSourceH, // Source rect
+                0, 0, lensSize, lensSize            // Dest rect (fill lens)
+            );
+        }
+
+    }, [magnifierState, showMagnifier, imageErrorData, activeView]); // Update whenever magnifier moves or content changes
+
+    const handleMouseMove = (event) => {
+        const canvas = canvasRef.current;
+        const img = imgRef.current;
+        if (!canvas || !img) return; // Safety check
+        const rect = canvas.getBoundingClientRect();
+
+        // Calculate mouse position relative to canvas
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+
+        // Update magnifier state
+        if (showMagnifier) {
+            setMagnifierState({
+                x: mouseX,
+                y: mouseY,
+                show: true
+            });
+        } else {
+            setMagnifierState(prev => ({ ...prev, show: false }));
+        }
+
+        // Calculate scale factors
+        const scaleX = img.offsetWidth / img.naturalWidth;
+        const scaleY = img.offsetHeight / img.naturalHeight;
+
+        let newHoverIndex = -1;
+
+        // Only do existing hover logic if we are NOT magnifying? Or both?
+        // User asked for "extract and magnify", usually implies inspection.
+        // Let's keep hover logic active so they can arguably see what box they are on.
+
+        for (let i = 0; i < imageErrorData.length; i++) {
+            const box = imageErrorData[i].box;
+            const [x1, y1, x2, y2] = box;
+
+            // Scale the box coordinates
+            const scaledX1 = x1 * scaleX;
+            const scaledY1 = y1 * scaleY;
+            const scaledX2 = x2 * scaleX;
+            const scaledY2 = y2 * scaleY;
+
+            if (mouseX >= scaledX1 && mouseX <= scaledX2 && mouseY >= scaledY1 && mouseY <= scaledY2) {
+                newHoverIndex = i;
+                break;
+            }
+        }
+
+        if (newHoverIndex !== hoveredBoxIndex) {
+            setHoveredBoxIndex(newHoverIndex);
+        }
+    };
     const fpnLayers = 3;
 
     const resolveImagePath = (imageId) => {
@@ -83,7 +179,7 @@ function ImageDetail() {
 
         // Get the other class (toggle between 1 and 3)
         const wrongClass = (gtClass) => gtClass === 1 ? 3 : 1;
-        
+
         // Helper to generate random confidence for predictions
         const randomConfidence = () => 0.45 + Math.random() * 0.35; // 45-80%
 
@@ -353,27 +449,27 @@ function ImageDetail() {
 
     const drawBoundingBoxes = () => {
         if (!imgRef.current || !canvasRef.current || imageErrorData.length === 0) return;
-    
+
         const canvas = canvasRef.current;
         const img = imgRef.current;
         const ctx = canvas.getContext('2d');
-    
+
         // Set canvas to match displayed dimensions
         canvas.width = img.offsetWidth;
         canvas.height = img.offsetHeight;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
         // Calculate scale factors
         const scaleX = img.offsetWidth / img.naturalWidth;
         const scaleY = img.offsetHeight / img.naturalHeight;
-    
+
         // Draw each bounding box
         imageErrorData.forEach((errorData, index) => {
             const box = errorData.box;
             const confidence = errorData.confidence;
             const predictedClass = errorData.predicted_classes;
             const className = classNames[predictedClass] || `Class ${predictedClass}`;
-    
+
             // Extract and SCALE box coordinates [x1, y1, x2, y2]
             const [x1, y1, x2, y2] = box;
             const scaledX1 = x1 * scaleX;
@@ -382,29 +478,29 @@ function ImageDetail() {
             const scaledY2 = y2 * scaleY;
             const width = scaledX2 - scaledX1;
             const height = scaledY2 - scaledY1;
-    
+
             // Determine opacity
             let opacity = 1;
             if (hoveredBoxIndex !== -1) {
                 opacity = (hoveredBoxIndex === index) ? 1.0 : 0.1;
             }
             const rgbaColor = hexToRgbA(errorData.color, opacity);
-    
+
             // Draw rectangle
             ctx.strokeStyle = rgbaColor;
             ctx.lineWidth = 3;
             ctx.strokeRect(scaledX1, scaledY1, width, height);
-    
+
             // Draw label background
-            let label = errorData.isGroundTruth 
-                ? `GT: ${className}` 
+            let label = errorData.isGroundTruth
+                ? `GT: ${className}`
                 : `${className}: ${(confidence * 100).toFixed(1)}%`;
             ctx.font = 'bold 14px Arial';
             ctx.fillStyle = rgbaColor;
             if (hoveredBoxIndex !== -1) {
                 if (hoveredBoxIndex === index) {
-                    label = errorData.isGroundTruth 
-                        ? `GT: ${className}` 
+                    label = errorData.isGroundTruth
+                        ? `GT: ${className}`
                         : `${className}: ${(confidence * 100).toFixed(1)}%`;
                 } else {
                     label = '';
@@ -412,47 +508,11 @@ function ImageDetail() {
             }
             const textWidth = ctx.measureText(label).width;
             ctx.fillRect(scaledX1, scaledY1 - 25, textWidth + 8, 24);
-    
+
             // Draw label text
             ctx.fillStyle = '#ffffff';
             ctx.fillText(label, scaledX1 + 4, scaledY1 - 8);
         });
-    };
-
-    const handleMouseMove = (event) => {
-        const canvas = canvasRef.current;
-        const img = imgRef.current;
-        const rect = canvas.getBoundingClientRect();
-        
-        // Calculate mouse position relative to canvas
-        const mouseX = event.clientX - rect.left;
-        const mouseY = event.clientY - rect.top;
-    
-        // Calculate scale factors
-        const scaleX = img.offsetWidth / img.naturalWidth;
-        const scaleY = img.offsetHeight / img.naturalHeight;
-    
-        let newHoverIndex = -1;
-    
-        for (let i = 0; i < imageErrorData.length; i++) {
-            const box = imageErrorData[i].box;
-            const [x1, y1, x2, y2] = box;
-            
-            // Scale the box coordinates
-            const scaledX1 = x1 * scaleX;
-            const scaledY1 = y1 * scaleY;
-            const scaledX2 = x2 * scaleX;
-            const scaledY2 = y2 * scaleY;
-            
-            if (mouseX >= scaledX1 && mouseX <= scaledX2 && mouseY >= scaledY1 && mouseY <= scaledY2) {
-                newHoverIndex = i;
-                break;
-            }
-        }
-    
-        if (newHoverIndex !== hoveredBoxIndex) {
-            setHoveredBoxIndex(newHoverIndex);
-        }
     };
 
     // Use effect to draw when image loads AND when hover state changes
@@ -460,7 +520,7 @@ function ImageDetail() {
         if (imgRef.current && imgRef.current.complete) {
             drawBoundingBoxes();
         }
-    }, [imageErrorData, hoveredBoxIndex, activeView]);
+    }, [imageErrorData, hoveredBoxIndex, showMagnifier]); // Added showMagnifier dependency
 
     // Add event listeners when component mounts or dependencies change
     useEffect(() => {
@@ -476,7 +536,7 @@ function ImageDetail() {
                 canvas.removeEventListener('mouseleave', () => setHoveredBoxIndex(-1));
             }
         };
-    }, [imageErrorData, hoveredBoxIndex]);
+    }, [imageErrorData, hoveredBoxIndex, showMagnifier]);
 
 
     if (loading) return <div className="loading-container"><div className="loading-spinner"></div></div>;
@@ -559,9 +619,21 @@ function ImageDetail() {
             </header>
 
             <div className="image-detail-container">
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                    Toggle view to visualize bounding boxes
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                        Toggle view to visualize bounding boxes
+                    </p>
+                    <label style={{ fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                        <input
+                            type="checkbox"
+                            checked={showMagnifier}
+                            onChange={(e) => setShowMagnifier(e.target.checked)}
+                            style={{ accentColor: 'var(--primary-color)' }}
+                        />
+                        Enable Magnifying Glass
+                    </label>
+                </div>
+
                 <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     {toggleOptions.map(option => (
                         <button
@@ -605,9 +677,43 @@ function ImageDetail() {
                                         width: '100%',
                                         height: 'auto',
                                         display: imageErrorData.length > 0 ? 'block' : 'none',
-                                        pointerEvents: 'all'
+                                        pointerEvents: 'all',
+                                        cursor: showMagnifier ? 'none' : 'default'
                                     }}
                                 />
+                                {magnifierState.show && (
+                                    <div
+                                        style={{
+                                            position: 'absolute',
+                                            left: `${magnifierState.x - 150}px`,
+                                            top: `${magnifierState.y - 150}px`,
+                                            width: '300px',
+                                            height: '300px',
+                                            border: '2px solid white',
+                                            pointerEvents: 'none',
+                                            backgroundImage: `url(${getViewUrl(activeView)})`,
+                                            backgroundRepeat: 'no-repeat',
+                                            backgroundSize: `${imgRef.current?.width * 2.5}px ${imgRef.current?.height * 2.5}px`,
+                                            backgroundPosition: `-${magnifierState.x * 2.5 - 150}px -${magnifierState.y * 2.5 - 150}px`,
+                                            boxShadow: '0 0 10px rgba(0,0,0,0.5)',
+                                            zIndex: 100,
+                                            backgroundColor: 'white'
+                                        }}
+                                    >
+                                        <canvas
+                                            ref={magnifierCanvasRef}
+                                            width={300}
+                                            height={300}
+                                            style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 0,
+                                                width: '100%',
+                                                height: '100%'
+                                            }}
+                                        />
+                                    </div>
+                                )}
                             </> :
                             <></>
                     }
