@@ -329,6 +329,45 @@ function ImageDetail() {
                     </div>
                 </div>
             </header>
+            {/* <div className="image-detail-container">
+                <div className="image-detail-grid">
+                    {images.fpn.map((src, idx) => (
+                        <div key={idx} className="image-column">
+                            <h3>FPN Layer {idx}</h3>
+                            <img 
+                                src={src} 
+                                alt={`FPN Layer ${idx}`}
+                                onError={(e) => console.error(`Failed to load: ${src}`)}
+                                onLoad={() => console.log(`Loaded: ${src}`)}
+                            />
+                        </div>
+                    ))}
+
+                    {images.pool.map((src, idx) => (
+                        <div key={idx} className="image-column">
+                            <h3>Pool Layer</h3>
+                            <img 
+                                src={src} 
+                                alt="Pool Layer"
+                                onError={(e) => console.error(`Failed to load: ${src}`)}
+                                onLoad={() => console.log(`Loaded: ${src}`)}
+                            />
+                        </div>
+                    ))}
+
+                    {images.backbone.map((src, idx) => (
+                        <div key={idx} className="image-column">
+                            <h3>Backbone Grad-CAM</h3>
+                            <img 
+                                src={src} 
+                                alt={`Backbone Grad-CAM ${idx}`}
+                                onError={(e) => console.error(`Failed to load: ${src}`)}
+                                onLoad={() => console.log(`Loaded: ${src}`)}
+                            />
+                        </div>
+                    ))}
+                </div>
+            </div> */}
 
             <div className="image-detail-container">
                 <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
