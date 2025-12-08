@@ -160,11 +160,9 @@ const ErrorEvolutionPage = () => {
                                         </span>
                                     ))}
                                 </div>
-                                <div style={{ color: '#fbbf24', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                                    Total: {item.totalErrors}
+                                
                                 </div>
                             </div>
-                        </div>
                     ))}
                 </div>
             </div>
