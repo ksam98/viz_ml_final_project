@@ -44,9 +44,10 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect, excl
             .attr('transform', `translate(${margin.left},${margin.top})`);
 
         // Scales
-        const x = d3.scaleLinear()
-            .domain(d3.extent(chartData, d => d.epoch))
-            .range([0, width]);
+        const x = d3.scaleBand()
+            .domain(chartData.map(d => d.epoch))
+            .range([0, width])
+            .padding(0.3);
 
         // Stack the data with filtered keys
         const stackedData = d3.stack()
@@ -57,18 +58,9 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect, excl
             .domain([0, d3.max(stackedData, layer => d3.max(layer, d => d[1])) * 1.1])
             .range([height, 0]);
 
-        // Area generator
-        const area = d3.area()
-            .x(d => x(d.data.epoch))
-            .y0(d => y(d[0]))
-            .y1(d => y(d[1]))
-            .curve(d3.curveMonotoneX); // Smooth curve
-
         // Axes
-        // X Axis with integer ticks only
         const xAxis = d3.axisBottom(x)
-            .ticks(chartData.length)
-            .tickFormat(d3.format('d'));
+            .tickFormat(d => `Epoch ${d}`);
 
         svg.append('g')
             .attr('transform', `translate(0,${height})`)
@@ -100,58 +92,59 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect, excl
             .style('fill', '#666')
             .text('Epoch');
 
-        // Render Areas
+        // Render Bars
         svg.selectAll('.layer')
             .data(stackedData)
             .enter()
-            .append('path')
+            .append('g')
             .attr('class', 'layer')
-            .attr('d', area)
-            .style('fill', d => colors[d.key])
-            .style('opacity', 0.8)
-            .style('cursor', 'pointer')
+            .attr('fill', d => colors[d.key])
+            .selectAll('rect')
+            .data(d => d.map(item => ({ ...item, key: d.key }))) // Pass key down to rects
+            .enter()
+            .append('rect')
+            .attr('x', d => x(d.data.epoch))
+            .attr('y', d => y(d[1]))
+            .attr('height', d => y(d[0]) - y(d[1]))
+            .attr('width', x.bandwidth())
+            .style('opacity', 0.9)
             .on('mouseover', function (event, d) {
                 d3.select(this).style('opacity', 1);
             })
             .on('mouseout', function (event, d) {
-                d3.select(this).style('opacity', 0.8);
+                d3.select(this).style('opacity', 0.9);
             })
             .on('click', function (event, d) {
-                // Navigate to evolution page for this error type
+                // d.key contains the error type (e.g., "classification")
                 if (onErrorSelect) {
                     onErrorSelect(d.key);
                 }
+
+                // Also select the epoch
+                if (onEpochSelect) {
+                    onEpochSelect(d.data.epoch);
+                }
+
                 event.stopPropagation();
             });
 
-        // Click handler for epoch selection (background/chart area)
-        svg.on('click', function (event) {
-            const [mouseX] = d3.pointer(event);
-            const clickedEpoch = Math.round(x.invert(mouseX));
-
-            // Clamp to valid range
-            const validEpoch = Math.max(
-                Math.min(clickedEpoch, d3.max(chartData, d => d.epoch)),
-                d3.min(chartData, d => d.epoch)
-            );
-
-            if (onEpochSelect) {
-                onEpochSelect(validEpoch);
-            }
-        });
-
-        // Highlight Selected Epoch Line
+        // Highlight Selected Epoch (Box around the bar) - REMOVED per user request
+        /* 
         if (selectedEpoch) {
-            svg.append('line')
-                .attr('x1', x(selectedEpoch))
-                .attr('x2', x(selectedEpoch))
-                .attr('y1', 0)
-                .attr('y2', height)
-                .attr('stroke', '#333')
-                .attr('stroke-width', 2)
-                .attr('stroke-dasharray', '5,5')
-                .style('pointer-events', 'none'); // Let clicks pass through
+            if (x(selectedEpoch) !== undefined) {
+                svg.append('rect')
+                    .attr('x', x(selectedEpoch) - 5)
+                    .attr('y', -5)
+                    .attr('width', x.bandwidth() + 10)
+                    .attr('height', height + 10)
+                    .attr('fill', 'none')
+                    .attr('stroke', '#333')
+                    .attr('stroke-width', 2)
+                    .attr('stroke-dasharray', '5,5')
+                    .style('pointer-events', 'none');
+            }
         }
+        */
 
     }, [data, selectedEpoch, onEpochSelect, onErrorSelect, excludeErrors]);
 

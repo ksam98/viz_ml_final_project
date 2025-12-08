@@ -12,14 +12,21 @@ function Dashboard() {
     const [allEpochsData, setAllEpochsData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [showBackground, setShowBackground] = useState(false);
+    const [visibleErrors, setVisibleErrors] = useState({
+        classification: true,
+        localization: true,
+        both: true,
+        duplicate: true,
+        background: false,
+        miss: true
+    });
     const [showPieBackground, setShowPieBackground] = useState(true);
 
     useEffect(() => {
         setLoading(true);
 
-        // Fetch all available epochs (currently 1 and 2)
-        const epochs = [1,5,10];
+        // Fetch all available epochs
+        const epochs = [1, 5, 10];
         const promises = epochs.map(epoch =>
             fetch(`/data/results_epoch_${epoch}.json`)
                 .then(res => {
@@ -68,7 +75,7 @@ function Dashboard() {
             metadata: {
                 model: "Faster R-CNN",
                 dataset: "COCO Val 2017 (Subset)",
-                num_images:462,
+                num_images: 462,
                 num_classes: 2
             },
             overall_metrics: metrics,
@@ -87,8 +94,16 @@ function Dashboard() {
         navigate(`/error-evolution/${errorType}`);
     };
 
+    const toggleError = (type) => {
+        setVisibleErrors(prev => ({
+            ...prev,
+            [type]: !prev[type]
+        }));
+    };
+
     // Derived state for the currently selected epoch
     const currentEpochData = allEpochsData.find(d => d.epoch === selectedEpoch);
+    const excludeErrors = Object.keys(visibleErrors).filter(key => !visibleErrors[key]);
 
     if (loading) {
         return (
@@ -198,30 +213,33 @@ function Dashboard() {
 
             <div className="visualizations-grid">
                 <div className="viz-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
                         <div>
                             <h2 style={{ marginBottom: 0 }}>Main Error Breakdown (Evolution)</h2>
                         </div>
-                        <label style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '0.5rem',
-                            cursor: 'pointer',
-                            padding: '0.5rem 1rem',
-                            background: 'var(--background)',
-                            borderRadius: '6px',
-                            border: '1px solid var(--border)'
-                        }}>
-                            <input 
-                                type="checkbox" 
-                                checked={showBackground}
-                                onChange={(e) => setShowBackground(e.target.checked)}
-                                style={{ cursor: 'pointer' }}
-                            />
-                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                                Show Background
-                            </span>
-                        </label>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {Object.keys(visibleErrors).map(type => (
+                                <label key={type} style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.3rem',
+                                    cursor: 'pointer',
+                                    padding: '0.25rem 0.5rem',
+                                    background: 'var(--background)',
+                                    borderRadius: '4px',
+                                    border: '1px solid var(--border)',
+                                    fontSize: '0.8rem'
+                                }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={visibleErrors[type]}
+                                        onChange={() => toggleError(type)}
+                                        style={{ cursor: 'pointer' }}
+                                    />
+                                    <span style={{ textTransform: 'capitalize' }}>{type}</span>
+                                </label>
+                            ))}
+                        </div>
                     </div>
                     <p className="viz-description">
                         Evolution of error impact (dAP) across epochs. Click an area to view all images with that error across epochs.
@@ -231,48 +249,11 @@ function Dashboard() {
                         selectedEpoch={selectedEpoch}
                         onEpochSelect={setSelectedEpoch}
                         onErrorSelect={handleErrorEvolution}
-                        excludeErrors={showBackground ? [] : ['background']}
+                        excludeErrors={excludeErrors}
                     />
                 </div>
 
-                <div className="viz-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <div>
-                            <h2 style={{ marginBottom: 0 }}>Error Distribution (Epoch {selectedEpoch})</h2>
-                        </div>
-                        <label style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '0.5rem',
-                            cursor: 'pointer',
-                            padding: '0.5rem 1rem',
-                            background: 'var(--background)',
-                            borderRadius: '6px',
-                            border: '1px solid var(--border)'
-                        }}>
-                            <input 
-                                type="checkbox" 
-                                checked={showPieBackground}
-                                onChange={(e) => setShowPieBackground(e.target.checked)}
-                                style={{ cursor: 'pointer' }}
-                            />
-                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                                Show Background
-                            </span>
-                        </label>
-                    </div>
-                    <p className="viz-description">
-                        {showPieBackground ? 'Relative proportion of each error type' : 'Error breakdown without background (click bars for details)'}
-                    </p>
-                    {showPieBackground ? (
-                        <ErrorPieChart data={currentEpochData.main_errors} />
-                    ) : (
-                        <ErrorDetailBarChart 
-                            data={currentEpochData.main_errors} 
-                            onErrorClick={handleErrorClick}
-                        />
-                    )}
-                </div>
+
             </div>
 
             <footer className="app-footer">

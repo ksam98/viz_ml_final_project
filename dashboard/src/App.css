@@ -38,6 +38,15 @@ body {
   padding: 2rem;
   max-width: 1400px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.app>* {
+  width: 100%;
+  max-width: 1000px;
+  /* Consistent max-width for all sections */
 }
 
 .app-header {
@@ -186,10 +195,10 @@ body {
 }
 
 .visualizations-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-  margin-bottom: 3rem;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: 2rem;
 }
 
 /* Container for visualization cards on detail pages */
@@ -198,8 +207,10 @@ body {
   gap: 2rem;
   margin-bottom: 3rem;
   align-items: start;
-  grid-template-columns: 1fr 1fr; /* Creates two columns of equal width */
-  gap: 20px; /* Optional: Adds a 20px gap between columns */
+  grid-template-columns: 1fr 1fr;
+  /* Creates two columns of equal width */
+  gap: 20px;
+  /* Optional: Adds a 20px gap between columns */
 }
 
 /* Image grid for gallery / thumbnails */
@@ -442,7 +453,7 @@ body {
 
 .image-column img:hover {
   transform: scale(1.03);
-  box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
 }
 
 /* For large screens: show all in one row */
@@ -471,7 +482,7 @@ body {
   .image-detail-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .image-column img {
     max-height: 50vh;
   }

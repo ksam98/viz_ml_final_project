@@ -16,7 +16,7 @@ function App() {
         <Route path="/image/:imageId/:errorType" element={<ImageDetail />} />
         <Route path="/error-evolution/:errorType" element={<ErrorEvolutionPage />} />
         <Route path="/image-evolution/:imageId" element={<ImageEvolutionPage />} />
-        </Routes>
+      </Routes>
     </Router>
   );
 }
