@@ -7,7 +7,7 @@ function ImageDetail() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const epoch = searchParams.get('epoch') || '1';
-
+    const [hoveredBoxIndex, setHoveredBoxIndex] = useState(-1); 
     const [images, setImages] = useState({ backbone: [], fpn: [], pool: [] });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -83,7 +83,7 @@ function ImageDetail() {
                         confidence: 1,
                         predicted_classes: data.annotations[i].category_id,
                         box: data.annotations[i].bbox,
-                        color: '#08f808ff'
+                        color: '#08f808'
                     }
                 );
             }
@@ -123,7 +123,7 @@ function ImageDetail() {
                         confidence: imageData.confidences[i],
                         predicted_classes: imageData.predicted_classes[i],
                         box: imageData.boxes[i],
-                        color: '#ee0a0aff'
+                        color: '#ee0a0a'
                     }
                 );
             }
@@ -132,6 +132,21 @@ function ImageDetail() {
 
         return imageErrorMetadata
     };
+
+    // Helper function to convert hex color to rgba format with specified opacity
+const hexToRgbA = (hex, opacity) => {
+    let c;
+    if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
+        c= hex.substring(1).split('');
+        if(c.length===3){
+            c= [c[0], c[0], c[1], c[1], c[2], c[2]];
+        }
+        c= '0x'+c.join('');
+        return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+','+opacity+')';
+    }
+    // Fallback if the input isn't a valid hex
+    return `rgba(0, 0, 0, ${opacity})`; 
+};
 
     const drawBoundingBoxes = () => {
         if (!imgRef.current || !canvasRef.current || imageErrorData.length === 0) return;
@@ -143,45 +158,96 @@ function ImageDetail() {
         // Set canvas dimensions to match image
         canvas.width = img.width;
         canvas.height = img.height;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Draw each bounding box
-        imageErrorData.forEach(errorData => {
+        imageErrorData.forEach((errorData, index) => {
             const box = errorData.box;
             const confidence = errorData.confidence;
             const predictedClass = errorData.predicted_classes;
-            // const className = classNames[predictedClass] || `Class ${predictedClass}`;
             const className = `Class ${predictedClass}`;
 
             // Extract box coordinates [x1, y1, x2, y2]
             const [x1, y1, x2, y2] = box;
             const width = x2 - x1;
             const height = y2 - y1;
+            
+            // Determine opacity: full opacity for hovered box, 0.4 for others, 1 if no box is hovered.
+            let opacity = 1;
+            if (hoveredBoxIndex !== -1) {
+                opacity = (hoveredBoxIndex === index) ? 1.0 : 0.1;
+            }
+            const rgbaColor = hexToRgbA(errorData.color, opacity);
 
             // Draw rectangle
-            ctx.strokeStyle = errorData.color;
-            ctx.strokeStyle = errorData.color;
+            ctx.strokeStyle = rgbaColor;
             ctx.lineWidth = 3;
             ctx.strokeRect(x1, y1, width, height);
 
             // Draw label background
             const label = `${className}: ${(confidence * 100).toFixed(1)}%`;
             ctx.font = 'bold 14px Arial';
-            ctx.fillStyle = errorData.color;
+            ctx.fillStyle = rgbaColor;
             const textWidth = ctx.measureText(label).width;
             ctx.fillRect(x1, y1 - 25, textWidth + 8, 24);
 
-            // Draw label text
+            // Draw label text (always full opacity white text for readability)
             ctx.fillStyle = '#ffffff';
             ctx.fillText(label, x1 + 4, y1 - 8);
         });
     };
 
+    const handleMouseMove = (event) => {
+        const canvas = canvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        // Calculate mouse position relative to canvas coordinates
+        const mouseX = (event.clientX - rect.left) * scaleX;
+        const mouseY = (event.clientY - rect.top) * scaleY;
+
+        let newHoverIndex = -1;
+
+        for (let i = 0; i < imageErrorData.length; i++) {
+            const box = imageErrorData[i].box;
+            const [x1, y1, x2, y2] = box;
+            if (mouseX >= x2 + 5 && mouseX <= x1 - 5 && mouseY >= y2 + 5 && mouseY <= y1 - 5) {
+                newHoverIndex = i;
+                break;
+            }
+        }
+        
+        if (newHoverIndex !== hoveredBoxIndex) {
+            setHoveredBoxIndex(newHoverIndex);
+        }
+    };
+    
+    // Use effect to draw when image loads AND when hover state changes
     useEffect(() => {
         if (imgRef.current && imgRef.current.complete) {
             drawBoundingBoxes();
         }
-    }, [imageErrorData]);
-    
+    }, [imageErrorData, hoveredBoxIndex]); // Added hoveredBoxIndex as dependency
+
+    // Add event listeners when component mounts or dependencies change
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseleave', () => setHoveredBoxIndex(-1));
+        }
+
+        return () => {
+            if (canvas) {
+                canvas.removeEventListener('mousemove', handleMouseMove);
+                // remove the mouseleave listener
+                // canvas.removeEventListener('mouseleave', () => setHoveredBoxIndex(-1));
+            }
+        };
+    }, [imageErrorData, hoveredBoxIndex]); // Dependencies for listeners
+
+
     if (loading) return <div className="loading-container"><div className="loading-spinner"></div></div>;
     if (error) return (
         <div className="error-container">
@@ -199,50 +265,8 @@ function ImageDetail() {
             </header>
 
             <div className="image-detail-container">
-                <div className="image-detail-grid">
-                    {/* FPN Layers */}
-                    {images.fpn.map((src, idx) => (
-                        <div key={idx} className="image-column">
-                            <h3>FPN Layer {idx}</h3>
-                            <img 
-                                src={src} 
-                                alt={`FPN Layer ${idx}`}
-                                onError={(e) => console.error(`Failed to load: ${src}`)}
-                                onLoad={() => console.log(`Loaded: ${src}`)}
-                            />
-                        </div>
-                    ))}
-
-                    {/* Pool Layer */}
-                    {images.pool.map((src, idx) => (
-                        <div key={idx} className="image-column">
-                            <h3>Pool Layer</h3>
-                            <img 
-                                src={src} 
-                                alt="Pool Layer"
-                                onError={(e) => console.error(`Failed to load: ${src}`)}
-                                onLoad={() => console.log(`Loaded: ${src}`)}
-                            />
-                        </div>
-                    ))}
-
-                    {/* Backbone Grad-CAM */}
-                    {images.backbone.map((src, idx) => (
-                        <div key={idx} className="image-column">
-                            <h3>Backbone Grad-CAM</h3>
-                            <img 
-                                src={src} 
-                                alt={`Backbone Grad-CAM ${idx}`}
-                                onError={(e) => console.error(`Failed to load: ${src}`)}
-                                onLoad={() => console.log(`Loaded: ${src}`)}
-                            />
-                        </div>
-                    ))}
-                </div>
-            </div>
-            <div className="image-detail-container">
                 <h2>Error Type: {errorType.charAt(0).toUpperCase() + errorType.slice(1)}</h2>
-                <div style={{ position: 'relative', display: 'inline-block' }}>
+                <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
                     {
                         imageErrorData.length > 0 ?
                             <><img 
@@ -251,6 +275,7 @@ function ImageDetail() {
                                 alt={`Image ${imageId}`}
                                 onLoad={drawBoundingBoxes}
                                 style={{ display: 'block', maxWidth: '100%' }}
+                                width={'100%'}
                             />
                             <canvas
                                 ref={canvasRef}
