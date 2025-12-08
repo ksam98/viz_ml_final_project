@@ -24,7 +24,7 @@ function ImageDetail() {
     const [error, setError] = useState(null);
     const [imageErrorData, setImageErrorData] = useState([]);
     const canvasRef = useRef(null);
-    const imgRef = useRef(null); // Moved up for better scope
+    const imgRef = useRef(null);
 
     // Draw zoomed bounding boxes onto the magnifier canvas
     useEffect(() => {
@@ -43,15 +43,12 @@ function ImageDetail() {
         const lensSize = 300;
 
         // Calculate source rectangle from main canvas
-        // The magnifier is centered at magnifierState.x, magnifierState.y
-        // We want to capture the area centered there, with size = lensSize / zoom
         const sourceW = lensSize / zoom;
         const sourceH = lensSize / zoom;
         const sourceX = magnifierState.x - (sourceW / 2);
         const sourceY = magnifierState.y - (sourceH / 2);
 
         // Draw the zoomed slice of the main canvas (which includes the image and its boxes)
-        // Ensure source coordinates are within bounds
         const clampedSourceX = Math.max(0, Math.min(sourceX, mainCanvas.width - sourceW));
         const clampedSourceY = Math.max(0, Math.min(sourceY, mainCanvas.height - sourceH));
         const clampedSourceW = Math.min(sourceW, mainCanvas.width - clampedSourceX);
@@ -60,17 +57,17 @@ function ImageDetail() {
         if (clampedSourceW > 0 && clampedSourceH > 0) {
             ctx.drawImage(
                 mainCanvas,
-                clampedSourceX, clampedSourceY, clampedSourceW, clampedSourceH, // Source rect
-                0, 0, lensSize, lensSize            // Dest rect (fill lens)
+                clampedSourceX, clampedSourceY, clampedSourceW, clampedSourceH,
+                0, 0, lensSize, lensSize
             );
         }
 
-    }, [magnifierState, showMagnifier, imageErrorData, activeView]); // Update whenever magnifier moves or content changes
+    }, [magnifierState, showMagnifier, imageErrorData, activeView]);
 
     const handleMouseMove = (event) => {
         const canvas = canvasRef.current;
         const img = imgRef.current;
-        if (!canvas || !img) return; // Safety check
+        if (!canvas || !img) return;
         const rect = canvas.getBoundingClientRect();
 
         // Calculate mouse position relative to canvas
@@ -94,10 +91,6 @@ function ImageDetail() {
 
         let newHoverIndex = -1;
 
-        // Only do existing hover logic if we are NOT magnifying? Or both?
-        // User asked for "extract and magnify", usually implies inspection.
-        // Let's keep hover logic active so they can arguably see what box they are on.
-
         for (let i = 0; i < imageErrorData.length; i++) {
             const box = imageErrorData[i].box;
             const [x1, y1, x2, y2] = box;
@@ -118,6 +111,7 @@ function ImageDetail() {
             setHoveredBoxIndex(newHoverIndex);
         }
     };
+
     const fpnLayers = 3;
 
     const resolveImagePath = (imageId) => {
@@ -181,7 +175,7 @@ function ImageDetail() {
         const wrongClass = (gtClass) => gtClass === 1 ? 3 : 1;
 
         // Helper to generate random confidence for predictions
-        const randomConfidence = () => 0.45 + Math.random() * 0.35; // 45-80%
+        const randomConfidence = () => 0.45 + Math.random() * 0.35;
 
         if (errorType === "miss") {
             // Sort GT boxes by area and pick the smallest ones
@@ -198,10 +192,10 @@ function ImageDetail() {
                 const gtClass = gt.category_id;
 
                 meta.push({
-                    confidence: null,  // No confidence for GT
+                    confidence: null,
                     predicted_classes: gtClass,
                     box: gtBox,
-                    color: "#00ff00",  // GREEN for GT
+                    color: "#00ff00",
                     label_prefix: "",
                     isGroundTruth: true
                 });
@@ -217,10 +211,10 @@ function ImageDetail() {
 
                 // Draw GT
                 meta.push({
-                    confidence: null,  // No confidence for GT
+                    confidence: null,
                     predicted_classes: gtClass,
                     box: gtBox,
-                    color: "#00ff00",  // GREEN for GT
+                    color: "#00ff00",
                     label_prefix: "",
                     isGroundTruth: true
                 });
@@ -230,7 +224,7 @@ function ImageDetail() {
                     confidence: randomConfidence(),
                     predicted_classes: wrongClass(gtClass),
                     box: randomShiftBox(gtBox, 5),
-                    color: "#ff0000",  // RED for Pred
+                    color: "#ff0000",
                     label_prefix: "",
                     isGroundTruth: false
                 });
@@ -246,10 +240,10 @@ function ImageDetail() {
 
                 // Draw GT
                 meta.push({
-                    confidence: null,  // No confidence for GT
+                    confidence: null,
                     predicted_classes: gtClass,
                     box: gtBox,
-                    color: "#00ff00",  // GREEN for GT
+                    color: "#00ff00",
                     label_prefix: "",
                     isGroundTruth: true
                 });
@@ -259,7 +253,7 @@ function ImageDetail() {
                     confidence: randomConfidence(),
                     predicted_classes: gtClass,
                     box: randomShiftBox(gtBox, 60),
-                    color: "#ff0000",  // RED for Pred
+                    color: "#ff0000",
                     label_prefix: "",
                     isGroundTruth: false
                 });
@@ -275,10 +269,10 @@ function ImageDetail() {
 
                 // Draw GT
                 meta.push({
-                    confidence: null,  // No confidence for GT
+                    confidence: null,
                     predicted_classes: gtClass,
                     box: gtBox,
-                    color: "#00ff00",  // GREEN for GT
+                    color: "#00ff00",
                     label_prefix: "",
                     isGroundTruth: true
                 });
@@ -288,7 +282,7 @@ function ImageDetail() {
                     confidence: randomConfidence(),
                     predicted_classes: wrongClass(gtClass),
                     box: randomShiftBox(gtBox, 70),
-                    color: "#ff0000",  // RED for Pred
+                    color: "#ff0000",
                     label_prefix: "",
                     isGroundTruth: false
                 });
@@ -308,7 +302,7 @@ function ImageDetail() {
                     confidence: randomConfidence(),
                     predicted_classes: Math.random() > 0.5 ? 1 : 3,
                     box: [randomX, randomY, randomX + randomW, randomY + randomH],
-                    color: "#ff0000",  // RED for FP
+                    color: "#ff0000",
                     label_prefix: "",
                     isGroundTruth: false
                 });
@@ -324,10 +318,10 @@ function ImageDetail() {
 
                 // Draw GT once
                 meta.push({
-                    confidence: null,  // No confidence for GT
+                    confidence: null,
                     predicted_classes: gtClass,
                     box: gtBox,
-                    color: "#00ff00",  // GREEN for GT
+                    color: "#00ff00",
                     label_prefix: "",
                     isGroundTruth: true
                 });
@@ -337,7 +331,7 @@ function ImageDetail() {
                     confidence: randomConfidence(),
                     predicted_classes: gtClass,
                     box: randomShiftBox(gtBox, 10),
-                    color: "#ff0000",  // RED for Pred
+                    color: "#ff0000",
                     label_prefix: "",
                     isGroundTruth: false
                 });
@@ -345,7 +339,7 @@ function ImageDetail() {
                     confidence: randomConfidence(),
                     predicted_classes: gtClass,
                     box: randomShiftBox(gtBox, 12),
-                    color: "#ff0000",  // RED for Pred
+                    color: "#ff0000",
                     label_prefix: "",
                     isGroundTruth: false
                 });
@@ -443,7 +437,6 @@ function ImageDetail() {
             c = '0x' + c.join('');
             return 'rgba(' + [(c >> 16) & 255, (c >> 8) & 255, c & 255].join(',') + ',' + opacity + ')';
         }
-        // Fallback if the input isn't a valid hex
         return `rgba(0, 0, 0, ${opacity})`;
     };
 
@@ -520,24 +513,29 @@ function ImageDetail() {
         if (imgRef.current && imgRef.current.complete) {
             drawBoundingBoxes();
         }
-    }, [imageErrorData, hoveredBoxIndex, showMagnifier]); // Added showMagnifier dependency
+    }, [imageErrorData, hoveredBoxIndex, showMagnifier]);
 
     // Add event listeners when component mounts or dependencies change
     useEffect(() => {
         const canvas = canvasRef.current;
+        
+        const handleMouseLeave = () => {
+            setHoveredBoxIndex(-1);
+            setMagnifierState(prev => ({ ...prev, show: false }));
+        };
+
         if (canvas) {
             canvas.addEventListener('mousemove', handleMouseMove);
-            canvas.addEventListener('mouseleave', () => setHoveredBoxIndex(-1));
+            canvas.addEventListener('mouseleave', handleMouseLeave);
         }
 
         return () => {
             if (canvas) {
                 canvas.removeEventListener('mousemove', handleMouseMove);
-                canvas.removeEventListener('mouseleave', () => setHoveredBoxIndex(-1));
+                canvas.removeEventListener('mouseleave', handleMouseLeave);
             }
         };
     }, [imageErrorData, hoveredBoxIndex, showMagnifier]);
-
 
     if (loading) return <div className="loading-container"><div className="loading-spinner"></div></div>;
     if (error) return (
