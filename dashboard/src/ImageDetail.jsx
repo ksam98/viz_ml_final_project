@@ -9,7 +9,10 @@ function ImageDetail() {
     const location = useLocation();
     const passedErrorCount = location.state?.errorCount;
     const [activeView, setActiveView] = useState('Original');
-
+    const classNames = {
+        1: 'Person',
+        3: 'Vehical',
+    }
     const epoch = searchParams.get('epoch') || '1';
     const [hoveredBoxIndex, setHoveredBoxIndex] = useState(-1);
     const [images, setImages] = useState({ backbone: [], fpn: [], pool: [] });
@@ -100,6 +103,7 @@ function ImageDetail() {
     const processValData = (data, imageId) => {
         let imageErrorMetadata = []
         for (let i = 0; i < data.annotations.length; i++) {
+            if(data.annotations[i].category_id !== 1 && data.annotations[i].category_id !== 3) continue;
             if (data.annotations[i].image_id.toString() === imageId.toString()) {
                 imageErrorMetadata.push(
                     {
@@ -140,6 +144,7 @@ function ImageDetail() {
         let imageErrorMetadata = [];
         for (let i = 0; i < imageData.errors.length; i++) {
             if (imageData.errors[i] === errorCode) {
+                if(imageData.predicted_classes[i] !== 1 && imageData.predicted_classes[i] !== 3) continue;
                 index.push(i);
                 imageErrorMetadata.push(
                     {
@@ -208,9 +213,16 @@ function ImageDetail() {
             ctx.strokeRect(x1, y1, width, height);
 
             // Draw label background
-            const label = `${className}: ${(confidence * 100).toFixed(1)}%`;
+            let label = `${classNames[predictedClass] || className}: ${(confidence * 100).toFixed(1)}%`;
             ctx.font = 'bold 14px Arial';
             ctx.fillStyle = rgbaColor;
+            if (hoveredBoxIndex !== -1) {
+                if(hoveredBoxIndex === index) {
+                    label = `${classNames[predictedClass] || className}: ${(confidence * 100).toFixed(1)}%`;
+                }else{
+                    label = '';
+                }
+            }
             const textWidth = ctx.measureText(label).width;
             ctx.fillRect(x1, y1 - 25, textWidth + 8, 24);
 
@@ -236,6 +248,10 @@ function ImageDetail() {
             const box = imageErrorData[i].box;
             const [x1, y1, x2, y2] = box;
             if (mouseX >= x2 + 5 && mouseX <= x1 - 5 && mouseY >= y2 + 5 && mouseY <= y1 - 5) {
+                newHoverIndex = i;
+                break;
+            }
+            if (mouseX <= x2 && mouseX >= x1 && mouseY <= y2 && mouseY >= y1) {
                 newHoverIndex = i;
                 break;
             }
