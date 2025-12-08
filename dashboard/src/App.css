@@ -206,8 +206,8 @@ body {
 /* Image grid for gallery / thumbnails */
 .image-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
   align-items: start;
   margin-bottom: 1.5rem;
 }
