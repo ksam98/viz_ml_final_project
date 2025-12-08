@@ -104,14 +104,15 @@ const ErrorDetailPage = () => {
                         background: 'var(--surface)',
                         padding: '0.5rem 1rem',
                         borderRadius: '6px',
-                        fontSize: '0.9rem',
+                        fontSize: '0.85rem',
                         border: '1px solid var(--border)',
                         color: 'var(--text-secondary)',
                         flex: 1,
                         textAlign: 'center',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        whiteSpace: 'nowrap'
                     }}>
                         <strong>Epoch {epoch}</strong>&nbsp;• Per-Image Contribution
                     </div>
@@ -119,11 +120,12 @@ const ErrorDetailPage = () => {
                         background: 'rgba(37, 99, 235, 0.1)',
                         padding: '0.5rem 1rem',
                         borderRadius: '6px',
-                        fontSize: '0.9rem',
-                        color: 'var(--primary-color)',
+                        fontSize: '0.85rem',
+                        color: 'white',
                         border: '1px solid rgba(37, 99, 235, 0.2)',
                         flex: 1,
-                        textAlign: 'center'
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap'
                     }}>
                         Total {errorType} errors in this epoch: <strong>{totalErrors}</strong>
                     </div>
@@ -131,11 +133,12 @@ const ErrorDetailPage = () => {
                         background: 'rgba(37, 99, 235, 0.1)',
                         padding: '0.5rem 1rem',
                         borderRadius: '6px',
-                        fontSize: '0.9rem',
-                        color: 'var(--primary-color)',
+                        fontSize: '0.85rem',
+                        color: 'white',
                         border: '1px solid rgba(37, 99, 235, 0.2)',
                         flex: 1,
-                        textAlign: 'center'
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap'
                     }}>
                         Number of images containing this error: <strong>{affectedImages}</strong>
                     </div>
