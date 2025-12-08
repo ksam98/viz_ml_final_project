@@ -176,6 +176,9 @@ function Dashboard() {
 
                 <div className="error-summary-container">
                     <h3>Error Types & Impact (dAP)</h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', textAlign: 'center' }}>
+                        Click an error type to drill down by image
+                    </p>
                     <div className="error-summary-list">
                         <div className="error-summary-item" onClick={() => handleErrorClick('classification')} style={{ cursor: 'pointer' }}>
                             <span className="error-label error-cls">Cls</span>
@@ -218,31 +221,48 @@ function Dashboard() {
                             <h2 style={{ marginBottom: 0 }}>Main Error Breakdown (Evolution)</h2>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            {Object.keys(visibleErrors).map(type => (
-                                <label key={type} style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.3rem',
-                                    cursor: 'pointer',
-                                    padding: '0.25rem 0.5rem',
-                                    background: 'var(--background)',
-                                    borderRadius: '4px',
-                                    border: '1px solid var(--border)',
-                                    fontSize: '0.8rem'
-                                }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={visibleErrors[type]}
-                                        onChange={() => toggleError(type)}
-                                        style={{ cursor: 'pointer' }}
-                                    />
-                                    <span style={{ textTransform: 'capitalize' }}>{type}</span>
-                                </label>
-                            ))}
+                            {Object.keys(visibleErrors).map(type => {
+                                const errorColors = {
+                                    classification: 'var(--error-cls)',
+                                    localization: 'var(--error-loc)',
+                                    both: 'var(--error-both)',
+                                    duplicate: 'var(--error-dupe)',
+                                    background: 'var(--error-bkg)',
+                                    miss: 'var(--error-miss)'
+                                };
+                                const color = errorColors[type];
+
+                                return (
+                                    <label key={type} style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.3rem',
+                                        cursor: 'pointer',
+                                        padding: '0.25rem 0.5rem',
+                                        background: 'var(--background)',
+                                        borderRadius: '4px',
+                                        border: `1px solid ${visibleErrors[type] ? color : 'var(--border)'}`,
+                                        fontSize: '0.8rem',
+                                        color: visibleErrors[type] ? color : 'var(--text-secondary)',
+                                        transition: 'all 0.2s ease'
+                                    }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={visibleErrors[type]}
+                                            onChange={() => toggleError(type)}
+                                            style={{
+                                                cursor: 'pointer',
+                                                accentColor: color
+                                            }}
+                                        />
+                                        <span style={{ textTransform: 'capitalize', fontWeight: visibleErrors[type] ? 600 : 400 }}>{type}</span>
+                                    </label>
+                                );
+                            })}
                         </div>
                     </div>
                     <p className="viz-description">
-                        Evolution of error impact (dAP) across epochs. Click an area to view all images with that error across epochs.
+                        Evolution of error impact (dAP) across epochs.
                     </p>
                     <ErrorBarChart
                         data={allEpochsData}

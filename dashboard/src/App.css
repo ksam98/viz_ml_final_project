@@ -50,8 +50,8 @@ body {
 }
 
 .app-header {
-  margin-bottom: 3rem;
-  padding-bottom: 2rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
   border-bottom: 2px solid var(--border);
 }
 
@@ -113,7 +113,7 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;
-  margin-bottom: 3rem;
+  margin-bottom: 1.5rem;
 }
 
 /* .metrics-container takes up the first column by default */
@@ -136,7 +136,7 @@ body {
 
 .error-summary-container h3 {
   font-size: 1.2rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.25rem;
   color: var(--text-primary);
   text-align: center;
 }
@@ -148,16 +148,6 @@ body {
   flex-grow: 1;
 }
 
-.error-summary-item {
-  background: var(--background);
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.9rem;
-}
-
 .error-label {
   font-weight: 700;
   width: 3rem;
@@ -166,7 +156,7 @@ body {
 .error-summary-item {
   background: var(--background);
   border-radius: 6px;
-  padding: 0.5rem 0.75rem;
+  padding: 0.35rem 0.75rem;
   display: flex;
   align-items: center;
   justify-content: space-between;

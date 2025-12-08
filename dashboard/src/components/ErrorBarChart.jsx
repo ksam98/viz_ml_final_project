@@ -92,6 +92,14 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect, excl
             .style('fill', '#666')
             .text('Epoch');
 
+        // Create tooltip
+        const tooltip = d3.select('body')
+            .selectAll('.chart-tooltip')
+            .data([null])
+            .join('div')
+            .attr('class', 'chart-tooltip')
+            .style('opacity', 0);
+
         // Render Bars
         svg.selectAll('.layer')
             .data(stackedData)
@@ -109,10 +117,26 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect, excl
             .attr('width', x.bandwidth())
             .style('opacity', 0.9)
             .on('mouseover', function (event, d) {
-                d3.select(this).style('opacity', 1);
+                d3.select(this).style('opacity', 1).attr('stroke', '#fff').attr('stroke-width', 1);
+
+                const dAP = (d[1] - d[0]).toFixed(4);
+                tooltip.transition().duration(200).style('opacity', 0.9);
+                tooltip.html(`
+                    <h4>Epoch ${d.data.epoch}</h4>
+                    <p><strong>Error:</strong> <span style="color: ${colors[d.key]}">${d.key.charAt(0).toUpperCase() + d.key.slice(1)}</span></p>
+                    <p><strong>dAP:</strong> ${dAP}</p>
+                `)
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 28) + 'px');
+            })
+            .on('mousemove', function (event) {
+                tooltip
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 28) + 'px');
             })
             .on('mouseout', function (event, d) {
-                d3.select(this).style('opacity', 0.9);
+                d3.select(this).style('opacity', 0.9).attr('stroke', 'none');
+                tooltip.transition().duration(500).style('opacity', 0);
             })
             .on('click', function (event, d) {
                 // d.key contains the error type (e.g., "classification")
@@ -128,24 +152,9 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect, excl
                 event.stopPropagation();
             });
 
-        // Highlight Selected Epoch (Box around the bar) - REMOVED per user request
-        /* 
-        if (selectedEpoch) {
-            if (x(selectedEpoch) !== undefined) {
-                svg.append('rect')
-                    .attr('x', x(selectedEpoch) - 5)
-                    .attr('y', -5)
-                    .attr('width', x.bandwidth() + 10)
-                    .attr('height', height + 10)
-                    .attr('fill', 'none')
-                    .attr('stroke', '#333')
-                    .attr('stroke-width', 2)
-                    .attr('stroke-dasharray', '5,5')
-                    .style('pointer-events', 'none');
-            }
-        }
-        */
-
+        return () => {
+            tooltip.remove();
+        };
     }, [data, selectedEpoch, onEpochSelect, onErrorSelect, excludeErrors]);
 
     return <svg ref={svgRef} className="error-bar-chart"></svg>;
