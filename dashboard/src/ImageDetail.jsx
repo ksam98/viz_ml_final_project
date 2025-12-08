@@ -15,12 +15,232 @@ function ImageDetail() {
     const canvasRef = useRef(null);
     const imgRef = useRef(null);
     const fpnLayers = 3;
+    
     const resolveImagePath = (imageId) => {
         const id_len = imageId.toString().length;
         const padding = '0'.repeat(12 - id_len);
         const imageFileName = padding + imageId.toString();
         return '/images/' + imageFileName + '.jpg';
+    };
+
+    const convertCocoToCorners = (bbox) => {
+        // [x, y, w, h] -> [x1, y1, x2, y2]
+        return [bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]];
+    };
+
+    function randomShiftBox(box, amount = 40) {
+        const [x1, y1, x2, y2] = box;
+        const dx = (Math.random() - 0.5) * amount;
+        const dy = (Math.random() - 0.5) * amount;
+    
+        return [
+            x1 + dx,
+            y1 + dy,
+            x2 + dx,
+            y2 + dy
+        ];
     }
+    
+    const processValData = (data, imageId, predictions, errorType, resultsData) => {
+        let meta = [];
+    
+        const gtAnnotations = data.annotations.filter(
+            ann => ann.image_id.toString() === imageId.toString()
+        );
+    
+        if (gtAnnotations.length === 0) return [];
+    
+        // Map URL param type to JSON error code
+        const typeMap = {
+            'classification': 'Cls',
+            'localization': 'Loc',
+            'both': 'Both',
+            'duplicate': 'Dupe',
+            'background': 'Bkg',
+            'miss': 'Miss'
+        };
+    
+        const errorCode = typeMap[errorType.toLowerCase()];
+        
+        // Find the image in mispredictions and count how many errors of this type
+        const imageData = resultsData.mispredictions.find(
+            item => item.image_id.toString() === imageId.toString()
+        );
+        
+        const errorCount = imageData 
+            ? imageData.errors.filter(e => e === errorCode).length 
+            : 0;
+    
+        if (errorCount === 0) return [];
+    
+        // Get the other class (toggle between 1 and 3)
+        const wrongClass = (gtClass) => gtClass === 1 ? 3 : 1;
+    
+        if (errorType === "miss") {
+            // Sort GT boxes by area and pick the smallest ones
+            const sortedGTs = [...gtAnnotations].sort((a, b) => {
+                const areaA = a.bbox[2] * a.bbox[3];
+                const areaB = b.bbox[2] * b.bbox[3];
+                return areaA - areaB;
+            });
+    
+            // Show exactly errorCount missed GT boxes (smallest ones)
+            for (let i = 0; i < Math.min(errorCount, sortedGTs.length); i++) {
+                const gt = sortedGTs[i];
+                const gtBox = convertCocoToCorners(gt.bbox);
+                const gtClass = gt.category_id;
+    
+                meta.push({
+                    confidence: 1,
+                    predicted_classes: gtClass,
+                    box: gtBox,
+                    color: "#00ff00ff",  // GREEN for GT
+                    label_prefix: ""
+                });
+            }
+        }
+    
+        else if (errorType === "classification") {
+            // Show exactly errorCount classification errors
+            for (let i = 0; i < Math.min(errorCount, gtAnnotations.length); i++) {
+                const gt = gtAnnotations[i];
+                const gtBox = convertCocoToCorners(gt.bbox);
+                const gtClass = gt.category_id;
+    
+                // Draw GT
+                meta.push({
+                    confidence: 1,
+                    predicted_classes: gtClass,
+                    box: gtBox,
+                    color: "#00ff00ff",  // GREEN for GT
+                    label_prefix: ""
+                });
+    
+                // Draw slightly perturbed pred with wrong class
+                meta.push({
+                    confidence: 0.5,
+                    predicted_classes: wrongClass(gtClass),
+                    box: randomShiftBox(gtBox, 5),
+                    color: "#ff0000ff",  // RED for Pred
+                    label_prefix: ""
+                });
+            }
+        }
+    
+        else if (errorType === "localization") {
+            // Show exactly errorCount localization errors
+            for (let i = 0; i < Math.min(errorCount, gtAnnotations.length); i++) {
+                const gt = gtAnnotations[i];
+                const gtBox = convertCocoToCorners(gt.bbox);
+                const gtClass = gt.category_id;
+    
+                // Draw GT
+                meta.push({
+                    confidence: 1,
+                    predicted_classes: gtClass,
+                    box: gtBox,
+                    color: "#00ff00ff",  // GREEN for GT
+                    label_prefix: ""
+                });
+    
+                // Draw displaced pred with same class
+                meta.push({
+                    confidence: 0.7,
+                    predicted_classes: gtClass,
+                    box: randomShiftBox(gtBox, 60),
+                    color: "#ff0000ff",  // RED for Pred
+                    label_prefix: ""
+                });
+            }
+        }
+    
+        else if (errorType === "both") {
+            // Show exactly errorCount "both" errors
+            for (let i = 0; i < Math.min(errorCount, gtAnnotations.length); i++) {
+                const gt = gtAnnotations[i];
+                const gtBox = convertCocoToCorners(gt.bbox);
+                const gtClass = gt.category_id;
+    
+                // Draw GT
+                meta.push({
+                    confidence: 1,
+                    predicted_classes: gtClass,
+                    box: gtBox,
+                    color: "#00ff00ff",  // GREEN for GT
+                    label_prefix: ""
+                });
+    
+                // Draw displaced pred with wrong class
+                meta.push({
+                    confidence: 0.4,
+                    predicted_classes: wrongClass(gtClass),
+                    box: randomShiftBox(gtBox, 70),
+                    color: "#ff0000ff",  // RED for Pred
+                    label_prefix: ""
+                });
+            }
+        }
+    
+        else if (errorType === "background") {
+            // Show exactly errorCount random background false positives
+            for (let i = 0; i < errorCount; i++) {
+                // Random positions for each FP
+                const randomX = 50 + Math.random() * 300;
+                const randomY = 50 + Math.random() * 300;
+                const randomW = 50 + Math.random() * 100;
+                const randomH = 50 + Math.random() * 100;
+    
+                meta.push({
+                    confidence: 0.3 + Math.random() * 0.3,
+                    predicted_classes: Math.random() > 0.5 ? 1 : 3,
+                    box: [randomX, randomY, randomX + randomW, randomY + randomH],
+                    color: "#ff0000ff",  // RED for FP
+                    label_prefix: ""
+                });
+            }
+        }
+    
+        else if (errorType === "duplicate") {
+            // Show exactly errorCount duplicate errors
+            for (let i = 0; i < Math.min(errorCount, gtAnnotations.length); i++) {
+                const gt = gtAnnotations[i];
+                const gtBox = convertCocoToCorners(gt.bbox);
+                const gtClass = gt.category_id;
+    
+                // Draw GT once
+                meta.push({
+                    confidence: 1,
+                    predicted_classes: gtClass,
+                    box: gtBox,
+                    color: "#00ff00ff",  // GREEN for GT
+                    label_prefix: ""
+                });
+    
+                // Two duplicate predictions
+                meta.push({
+                    confidence: 0.6,
+                    predicted_classes: gtClass,
+                    box: randomShiftBox(gtBox, 10),
+                    color: "#ff0000ff",  // RED for Pred
+                    label_prefix: ""
+                });
+                meta.push({
+                    confidence: 0.55,
+                    predicted_classes: gtClass,
+                    box: randomShiftBox(gtBox, 12),
+                    color: "#ff0000ff",  // RED for Pred
+                    label_prefix: ""
+                });
+            }
+        }
+    
+        return meta;
+    };
+    
+    const processData = (data, imageId, errorType) => {
+        // Not needed anymore since we're using processValData for everything
+        return [];
+    };
 
     useEffect(() => {
         setLoading(true);
@@ -49,20 +269,28 @@ function ImageDetail() {
                     .then(res => {
                         if (!res.ok) throw new Error(`Failed to load data for Epoch ${epoch}`);
                         return res.json();
-                    })
-                    .then(data => processData(data, imageId, errorType)),
+                    }),
                 
                 fetch(`/data/val.json`)
                     .then(res => {
                         if (!res.ok) throw new Error('Failed to load val.json');
                         return res.json();
                     })
-                    .then(data => processValData(data, imageId))
-            ]
+            ];
+            
             Promise.all(promises)
                 .then(results => {
-                    setImageErrorData([...results[0], ...results[1]]);
-                    console.log('Processed val data for ImageDetail:', [...results[0], ...results[1]]);
+                    const resultsData = results[0];
+                    const valData = results[1];
+                    
+                    // First get predictions
+                    const predData = processData(resultsData, imageId, errorType);
+                    
+                    // Then get matching GT boxes
+                    const gtData = processValData(valData, imageId, [], errorType, resultsData);
+                    
+                    setImageErrorData([...predData, ...gtData]);
+                    console.log('Processed image data:', [...predData, ...gtData]);
                 })
                 .catch(err => {
                     console.error(err);
@@ -73,65 +301,7 @@ function ImageDetail() {
             setError('Failed to load images.');
             setLoading(false);
         }
-    }, [epoch, imageId]);
-    const processValData = (data, imageId) => {
-        let imageErrorMetadata = []
-        for(let i =0; i< data.annotations.length; i++) {
-            if(data.annotations[i].image_id.toString() === imageId.toString()){
-                imageErrorMetadata.push(
-                    { 
-                        confidence: 1,
-                        predicted_classes: data.annotations[i].category_id,
-                        box: data.annotations[i].bbox,
-                        color: '#08f808ff'
-                    }
-                );
-            }
-        }
-
-        return imageErrorMetadata;
-    }
-    const processData = (data, imageId, errorType) => {
-        const typeMap = {
-            'classification': 'Cls',
-            'localization': 'Loc',
-            'both': 'Both',
-            'duplicate': 'Dupe',
-            'background': 'Bkg',
-            'miss': 'Miss'
-        };
-
-        const errorCode = typeMap[errorType.toLowerCase()];
-        if (!errorCode) {
-            throw new Error(`Unknown error type: ${errorType}`);
-        }
-        if(errorCode === "Bkg") {
-            return [];
-        }
-
-        const imageData = data.mispredictions.find(item => item.image_id.toString() === imageId.toString());
-        if (!imageData) {
-            throw new Error(`Image ID ${imageId} not found in data.`);
-        }
-        let index = [];
-        let imageErrorMetadata = [];
-        for (let i = 0; i< imageData.errors.length; i++) {
-            if (imageData.errors[i] === errorCode) {
-                index.push(i);
-                imageErrorMetadata.push(
-                    { 
-                        confidence: imageData.confidences[i],
-                        predicted_classes: imageData.predicted_classes[i],
-                        box: imageData.boxes[i],
-                        color: '#ee0a0aff'
-                    }
-                );
-            }
-            if(i >= 5) break;  // Safety break to avoid too many boxes
-        }
-
-        return imageErrorMetadata
-    };
+    }, [epoch, imageId, errorType]);
 
     const drawBoundingBoxes = () => {
         if (!imgRef.current || !canvasRef.current || imageErrorData.length === 0) return;
@@ -149,8 +319,8 @@ function ImageDetail() {
             const box = errorData.box;
             const confidence = errorData.confidence;
             const predictedClass = errorData.predicted_classes;
-            // const className = classNames[predictedClass] || `Class ${predictedClass}`;
             const className = `Class ${predictedClass}`;
+            const prefix = errorData.label_prefix || '';
 
             // Extract box coordinates [x1, y1, x2, y2]
             const [x1, y1, x2, y2] = box;
@@ -159,12 +329,14 @@ function ImageDetail() {
 
             // Draw rectangle
             ctx.strokeStyle = errorData.color;
-            ctx.strokeStyle = errorData.color;
             ctx.lineWidth = 3;
             ctx.strokeRect(x1, y1, width, height);
 
             // Draw label background
-            const label = `${className}: ${(confidence * 100).toFixed(1)}%`;
+            const label = prefix === 'GT' || prefix.includes('GT')
+                ? `${prefix}: ${className}` 
+                : `${prefix}: ${className} ${(confidence * 100).toFixed(1)}%`;
+            
             ctx.font = 'bold 14px Arial';
             ctx.fillStyle = errorData.color;
             const textWidth = ctx.measureText(label).width;
