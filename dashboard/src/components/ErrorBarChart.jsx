@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 import './ErrorBarChart.css';
 
-const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect }) => {
+const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect, excludeErrors = [] }) => {
     const svgRef = useRef();
 
     useEffect(() => {
@@ -18,7 +18,10 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect }) =>
             ...d.main_errors
         })).sort((a, b) => a.epoch - b.epoch);
 
-        const keys = ['classification', 'localization', 'both', 'duplicate', 'background', 'miss'];
+        // Filter out excluded error types
+        const allKeys = ['classification', 'localization', 'both', 'duplicate', 'background', 'miss'];
+        const keys = allKeys.filter(key => !excludeErrors.includes(key));
+
         const colors = {
             classification: '#ff7f0e',
             localization: '#1f77b4',
@@ -41,11 +44,12 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect }) =>
             .attr('transform', `translate(${margin.left},${margin.top})`);
 
         // Scales
-        const x = d3.scaleLinear()
-            .domain(d3.extent(chartData, d => d.epoch))
-            .range([0, width]);
+        const x = d3.scaleBand()
+            .domain(chartData.map(d => d.epoch))
+            .range([0, width])
+            .padding(0.3);
 
-        // Stack the data
+        // Stack the data with filtered keys
         const stackedData = d3.stack()
             .keys(keys)
             (chartData);
@@ -54,18 +58,9 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect }) =>
             .domain([0, d3.max(stackedData, layer => d3.max(layer, d => d[1])) * 1.1])
             .range([height, 0]);
 
-        // Area generator
-        const area = d3.area()
-            .x(d => x(d.data.epoch))
-            .y0(d => y(d[0]))
-            .y1(d => y(d[1]))
-            .curve(d3.curveMonotoneX); // Smooth curve
-
         // Axes
-        // X Axis with integer ticks only
         const xAxis = d3.axisBottom(x)
-            .ticks(chartData.length)
-            .tickFormat(d3.format('d'));
+            .tickFormat(d => `Epoch ${d}`);
 
         svg.append('g')
             .attr('transform', `translate(0,${height})`)
@@ -97,20 +92,51 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect }) =>
             .style('fill', '#666')
             .text('Epoch');
 
-        // Render Areas
+        // Create tooltip
+        const tooltip = d3.select('body')
+            .selectAll('.chart-tooltip')
+            .data([null])
+            .join('div')
+            .attr('class', 'chart-tooltip')
+            .style('opacity', 0);
+
+        // Render Bars
         svg.selectAll('.layer')
             .data(stackedData)
             .enter()
-            .append('path')
+            .append('g')
             .attr('class', 'layer')
-            .attr('d', area)
-            .style('fill', d => colors[d.key])
-            .style('opacity', 0.8)
+            .attr('fill', d => colors[d.key])
+            .selectAll('rect')
+            .data(d => d.map(item => ({ ...item, key: d.key }))) // Pass key down to rects
+            .enter()
+            .append('rect')
+            .attr('x', d => x(d.data.epoch))
+            .attr('y', d => y(d[1]))
+            .attr('height', d => y(d[0]) - y(d[1]))
+            .attr('width', x.bandwidth())
+            .style('opacity', 0.9)
             .on('mouseover', function (event, d) {
-                d3.select(this).style('opacity', 1);
+                d3.select(this).style('opacity', 1).attr('stroke', '#fff').attr('stroke-width', 1);
+
+                const dAP = (d[1] - d[0]).toFixed(4);
+                tooltip.transition().duration(200).style('opacity', 0.9);
+                tooltip.html(`
+                    <h4>Epoch ${d.data.epoch}</h4>
+                    <p><strong>Error:</strong> <span style="color: ${colors[d.key]}">${d.key.charAt(0).toUpperCase() + d.key.slice(1)}</span></p>
+                    <p><strong>dAP:</strong> ${dAP}</p>
+                `)
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 28) + 'px');
+            })
+            .on('mousemove', function (event) {
+                tooltip
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 28) + 'px');
             })
             .on('mouseout', function (event, d) {
-                d3.select(this).style('opacity', 0.8);
+                d3.select(this).style('opacity', 0.9).attr('stroke', 'none');
+                tooltip.transition().duration(500).style('opacity', 0);
             })
             .on('click', function (event, d) {
                 // d.key contains the error type (e.g., "classification")
@@ -118,40 +144,18 @@ const ErrorBarChart = ({ data, selectedEpoch, onEpochSelect, onErrorSelect }) =>
                     onErrorSelect(d.key);
                 }
 
-                // Prevent bubbling to the epoch selection click
+                // Also select the epoch
+                if (onEpochSelect) {
+                    onEpochSelect(d.data.epoch);
+                }
+
                 event.stopPropagation();
             });
 
-        // Click handler for epoch selection (background/chart area)
-        svg.on('click', function (event) {
-            const [mouseX] = d3.pointer(event);
-            const clickedEpoch = Math.round(x.invert(mouseX));
-
-            // Clamp to valid range
-            const validEpoch = Math.max(
-                Math.min(clickedEpoch, d3.max(chartData, d => d.epoch)),
-                d3.min(chartData, d => d.epoch)
-            );
-
-            if (onEpochSelect) {
-                onEpochSelect(validEpoch);
-            }
-        });
-
-        // Highlight Selected Epoch Line
-        if (selectedEpoch) {
-            svg.append('line')
-                .attr('x1', x(selectedEpoch))
-                .attr('x2', x(selectedEpoch))
-                .attr('y1', 0)
-                .attr('y2', height)
-                .attr('stroke', '#333')
-                .attr('stroke-width', 2)
-                .attr('stroke-dasharray', '5,5')
-                .style('pointer-events', 'none'); // Let clicks pass through
-        }
-
-    }, [data, selectedEpoch, onEpochSelect]);
+        return () => {
+            tooltip.remove();
+        };
+    }, [data, selectedEpoch, onEpochSelect, onErrorSelect, excludeErrors]);
 
     return <svg ref={svgRef} className="error-bar-chart"></svg>;
 };

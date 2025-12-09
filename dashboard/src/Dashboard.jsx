@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import './App.css';
 import ErrorBarChart from './components/ErrorBarChart';
 import ErrorPieChart from './components/ErrorPieChart';
+import ErrorDetailBarChart from './components/ErrorDetailBarChart';
 import MetricsCard from './components/MetricsCard';
 
 function Dashboard() {
@@ -11,12 +12,21 @@ function Dashboard() {
     const [allEpochsData, setAllEpochsData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [visibleErrors, setVisibleErrors] = useState({
+        classification: true,
+        localization: true,
+        both: true,
+        duplicate: true,
+        background: false,
+        miss: true
+    });
+    const [showPieBackground, setShowPieBackground] = useState(true);
 
     useEffect(() => {
         setLoading(true);
 
-        // Fetch all available epochs (currently 1 and 2)
-        const epochs = [1, 2];
+        // Fetch all available epochs
+        const epochs = [1, 5, 10];
         const promises = epochs.map(epoch =>
             fetch(`/data/results_epoch_${epoch}.json`)
                 .then(res => {
@@ -65,8 +75,8 @@ function Dashboard() {
             metadata: {
                 model: "Faster R-CNN",
                 dataset: "COCO Val 2017 (Subset)",
-                num_images: 6,
-                num_classes: 80
+                num_images: 564,
+                num_classes: 2
             },
             overall_metrics: metrics,
             main_errors: main_errors,
@@ -75,13 +85,25 @@ function Dashboard() {
     };
 
     const handleErrorClick = (errorType) => {
-        // Navigate to error detail page
-        // errorType comes from the chart key, e.g., "classification"
+        // Navigate to error detail page for single epoch
         navigate(`/error/${errorType}?epoch=${selectedEpoch}`);
+    };
+
+    const handleErrorEvolution = (errorType) => {
+        // Navigate to evolution page showing all epochs
+        navigate(`/error-evolution/${errorType}`);
+    };
+
+    const toggleError = (type) => {
+        setVisibleErrors(prev => ({
+            ...prev,
+            [type]: !prev[type]
+        }));
     };
 
     // Derived state for the currently selected epoch
     const currentEpochData = allEpochsData.find(d => d.epoch === selectedEpoch);
+    const excludeErrors = Object.keys(visibleErrors).filter(key => !visibleErrors[key]);
 
     if (loading) {
         return (
@@ -154,33 +176,36 @@ function Dashboard() {
 
                 <div className="error-summary-container">
                     <h3>Error Types & Impact (dAP)</h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', textAlign: 'center' }}>
+                        Click an error type to drill down by image
+                    </p>
                     <div className="error-summary-list">
-                        <div className="error-summary-item">
+                        <div className="error-summary-item" onClick={() => handleErrorClick('classification')} style={{ cursor: 'pointer' }}>
                             <span className="error-label error-cls">Cls</span>
                             <span className="error-desc">Classification</span>
                             <span className="error-val">{currentEpochData.main_errors.classification.toFixed(2)}</span>
                         </div>
-                        <div className="error-summary-item">
+                        <div className="error-summary-item" onClick={() => handleErrorClick('localization')} style={{ cursor: 'pointer' }}>
                             <span className="error-label error-loc">Loc</span>
                             <span className="error-desc">Localization</span>
                             <span className="error-val">{currentEpochData.main_errors.localization.toFixed(2)}</span>
                         </div>
-                        <div className="error-summary-item">
+                        <div className="error-summary-item" onClick={() => handleErrorClick('both')} style={{ cursor: 'pointer' }}>
                             <span className="error-label error-both">Both</span>
                             <span className="error-desc">Cls + Loc</span>
                             <span className="error-val">{currentEpochData.main_errors.both.toFixed(2)}</span>
                         </div>
-                        <div className="error-summary-item">
+                        <div className="error-summary-item" onClick={() => handleErrorClick('duplicate')} style={{ cursor: 'pointer' }}>
                             <span className="error-label error-dupe">Dupe</span>
                             <span className="error-desc">Duplicate</span>
                             <span className="error-val">{currentEpochData.main_errors.duplicate.toFixed(2)}</span>
                         </div>
-                        <div className="error-summary-item">
+                        <div className="error-summary-item" onClick={() => handleErrorClick('background')} style={{ cursor: 'pointer' }}>
                             <span className="error-label error-bkg">Bkg</span>
                             <span className="error-desc">Background</span>
                             <span className="error-val">{currentEpochData.main_errors.background.toFixed(2)}</span>
                         </div>
-                        <div className="error-summary-item">
+                        <div className="error-summary-item" onClick={() => handleErrorClick('miss')} style={{ cursor: 'pointer' }}>
                             <span className="error-label error-miss">Miss</span>
                             <span className="error-desc">Missed</span>
                             <span className="error-val">{currentEpochData.main_errors.miss.toFixed(2)}</span>
@@ -191,25 +216,64 @@ function Dashboard() {
 
             <div className="visualizations-grid">
                 <div className="viz-card">
-                    <h2>Main Error Breakdown (Evolution)</h2>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div>
+                            <h2 style={{ marginBottom: 0 }}>Main Error Breakdown (Evolution)</h2>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {Object.keys(visibleErrors).map(type => {
+                                const errorColors = {
+                                    classification: 'var(--error-cls)',
+                                    localization: 'var(--error-loc)',
+                                    both: 'var(--error-both)',
+                                    duplicate: 'var(--error-dupe)',
+                                    background: 'var(--error-bkg)',
+                                    miss: 'var(--error-miss)'
+                                };
+                                const color = errorColors[type];
+
+                                return (
+                                    <label key={type} style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.3rem',
+                                        cursor: 'pointer',
+                                        padding: '0.25rem 0.5rem',
+                                        background: 'var(--background)',
+                                        borderRadius: '4px',
+                                        border: `1px solid ${visibleErrors[type] ? color : 'var(--border)'}`,
+                                        fontSize: '0.8rem',
+                                        color: visibleErrors[type] ? color : 'var(--text-secondary)',
+                                        transition: 'all 0.2s ease'
+                                    }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={visibleErrors[type]}
+                                            onChange={() => toggleError(type)}
+                                            style={{
+                                                cursor: 'pointer',
+                                                accentColor: color
+                                            }}
+                                        />
+                                        <span style={{ textTransform: 'capitalize', fontWeight: visibleErrors[type] ? 600 : 400 }}>{type}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </div>
                     <p className="viz-description">
-                        Evolution of error impact (dAP) across epochs. Click an error type to drill down.
+                        Evolution of error impact (dAP) across epochs.
                     </p>
                     <ErrorBarChart
                         data={allEpochsData}
                         selectedEpoch={selectedEpoch}
                         onEpochSelect={setSelectedEpoch}
-                        onErrorSelect={handleErrorClick}
+                        onErrorSelect={handleErrorEvolution}
+                        excludeErrors={excludeErrors}
                     />
                 </div>
 
-                <div className="viz-card">
-                    <h2>Error Distribution (Epoch {selectedEpoch})</h2>
-                    <p className="viz-description">
-                        Relative proportion of each error type
-                    </p>
-                    <ErrorPieChart data={currentEpochData.main_errors} />
-                </div>
+
             </div>
 
             <footer className="app-footer">
