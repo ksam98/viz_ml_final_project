@@ -1,4 +1,4 @@
-# Viz ML Final Project
+# TRACEDET
 
 By Samprith Kalakata (srk9068), Jaival Bhuptani, Abhipal Sharma
 
@@ -14,3 +14,8 @@ By Samprith Kalakata (srk9068), Jaival Bhuptani, Abhipal Sharma
    ```bash
    pip install -r requirements.txt
    ```
+
+## Description and Findings
+[View the final project report (PDF)](Viz_for_ML_final_report.pdf)
+
+
